@@ -20,14 +20,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                         ValidAudience = "XYZ-Forge-User",
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
                     };
+
+                    options.TokenValidationParameters.RoleClaimType = "Role";
                 });
 
 builder.Services.AddOpenApi();
-builder.Services.AddAuthorization(options => {
-    options.AddPolicy("AdminPolicy", policy => {
-        policy.RequireClaim("role", "Admin");
-    });
-});
+builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => {
     options.SwaggerDoc("v1", new OpenApiInfo {
@@ -57,6 +55,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var users = new List<User>();
+
+// Create default admin user
+{
+    var hashedPass = BCrypt.Net.BCrypt.HashPassword("Admin");
+    users.Add(new User {
+        Username = "Admin",
+        Password = hashedPass,
+        Role = "Admin"
+    });
+    logger.Log(LogLevel.Information, "Default admin creds: Admin:Admin");
+}
 
 // DEVELOPMENT! DO NOT PUT IN PROD
 

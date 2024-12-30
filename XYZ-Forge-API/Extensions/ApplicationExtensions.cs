@@ -9,8 +9,8 @@ namespace XYZForge.Extensions
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "XYZ-Forge-API");
-                    c.RoutePrefix = "swagger";
+                    c.SwaggerEndpoint("/api/v1/swagger.json", "XYZ-Forge-API");
+                    c.RoutePrefix = "api";
                 });
             }
 

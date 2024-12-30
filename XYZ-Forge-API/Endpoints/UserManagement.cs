@@ -70,8 +70,7 @@ namespace XYZForge.Endpoints
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
 
                     var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name);
-                    if (usernameClaim is null)
-                    {
+                    if (usernameClaim is null) {
                         logger.LogWarning("Role claim is missing in the token.");
                         return Results.BadRequest("Role claim is missing in the token.");
                     }
@@ -81,26 +80,26 @@ namespace XYZForge.Endpoints
                         return Results.NotFound("User not found");
                     }
 
-                    if (user.Role != "Admin")
-                    {
-                        logger.LogWarning($"Access denied. Role: {user.Role}");
-                        return Results.Forbid();
-                    }
-
-                    user = users.FirstOrDefault(u => u.Username == req.Username);
-                    if (user is null)
-                    {
+                    var targetUser = users.FirstOrDefault(u => u.Username == req.Username);
+                    if (targetUser is null) {
                         logger.LogWarning($"User not found: {req.Username}");
                         return Results.NotFound("User not found.");
                     }
 
-                    if (!string.IsNullOrEmpty(req.TargetRole)) user.Role = req.TargetRole;
-                    if (!string.IsNullOrEmpty(req.TargetUsername)) user.Username = req.TargetUsername;
-                    if (!string.IsNullOrEmpty(req.TargetPassword))
-                        user.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
+                    if (!string.IsNullOrEmpty(req.TargetRole)) {
+                        if (user.Role != "Admin") {
+                            logger.LogWarning($"Access denied. Role: {user.Role}");
+                            return Results.Forbid();
+                        }
+                        targetUser.Role = req.TargetRole;
+                    }
 
-                    logger.LogInformation($"User {user.Username} updated successfully.");
-                    return Results.Ok($"User {user.Username} updated successfully.");
+                    if (!string.IsNullOrEmpty(req.TargetUsername)) targetUser.Username = req.TargetUsername;
+                    if (!string.IsNullOrEmpty(req.TargetPassword))
+                        targetUser.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
+
+                    logger.LogInformation($"User {targetUser.Username} updated successfully.");
+                    return Results.Ok($"User {targetUser.Username} updated successfully.");
                 }
                 catch (Exception ex)
                 {

@@ -56,7 +56,6 @@ namespace XYZForge.Endpoints
 
                 try
                 {
-                    // Define token validation parameters
                     var validatorParams = new TokenValidationParameters
                     {
                         ValidateIssuer = true,
@@ -68,10 +67,8 @@ namespace XYZForge.Endpoints
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
                     };
 
-                    // Validate the token
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
 
-                    // Extract role claim
                     var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name);
                     if (usernameClaim is null)
                     {
@@ -79,7 +76,11 @@ namespace XYZForge.Endpoints
                         return Results.BadRequest("Role claim is missing in the token.");
                     }
 
-                    var user = users.FirstOrDefault(u => u.Username == usernameClaim.Value);
+                    var user = users.FirstOrDefault(u => u.Username == usernameClaim.Value);    
+                    if(user is null) {
+                        return Results.NotFound("User not found");
+                    }
+
                     if (user.Role != "Admin")
                     {
                         logger.LogWarning($"Access denied. Role: {user.Role}");
@@ -93,7 +94,6 @@ namespace XYZForge.Endpoints
                         return Results.NotFound("User not found.");
                     }
 
-                    // Update user details
                     if (!string.IsNullOrEmpty(req.TargetRole)) user.Role = req.TargetRole;
                     if (!string.IsNullOrEmpty(req.TargetUsername)) user.Username = req.TargetUsername;
                     if (!string.IsNullOrEmpty(req.TargetPassword))

@@ -9,7 +9,9 @@ namespace XYZForge.Helpers
     {
         public static string GenerateJwtToken(string username, string role)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="));
+            string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]

@@ -10,6 +10,8 @@ namespace XYZForge.Extensions
     {
         public static void ConfigureServices(this IServiceCollection services)
         {
+            string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+            
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -21,7 +23,7 @@ namespace XYZForge.Extensions
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs=")),
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
                         NameClaimType = ClaimTypes.Name,
                     };
                 });

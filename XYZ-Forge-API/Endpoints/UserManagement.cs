@@ -13,6 +13,12 @@ namespace XYZForge.Endpoints
             var users = new List<User>();
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
+            string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+            if(secretKey == null) {
+                logger.LogError("Failed to load JWT secret key");
+                app.Lifetime.StopApplication();
+            }
+
             var hashedPass = BCrypt.Net.BCrypt.HashPassword("Admin");
             users.Add(new User { Username = "Admin", Password = hashedPass, Role = "Admin" });
             logger.LogInformation("Default admin creds: Admin:Admin");
@@ -66,7 +72,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
@@ -114,7 +120,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);

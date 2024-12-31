@@ -49,6 +49,56 @@ namespace XYZForge.Endpoints
                 return Results.Ok(new { Token = token });
             });
 
+            app.MapPost("/logout", () => {
+                return Results.Ok("Logout successful"); // The logout processed is managed by express session
+            });
+
+            app.MapPost("/delete-user", (UserDelete req) => {
+                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                var logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+                try {
+                    var validatorParams = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "XYZ-Forge",
+                        ValidAudience = "XYZ-Forge-User",
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                    };
+
+                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+
+                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+                    if(usernameClaim == null || roleClaim == null) {
+                        logger.LogWarning("Invalid Token: Missing Claims");
+                        return Results.BadRequest("Invalid Token");
+                    }
+
+                    var userToDelete = users.FirstOrDefault(u => u.Username == req.Username);
+                    if(userToDelete == null) {
+                        return Results.NotFound("User not found");
+                    }
+
+                    if(usernameClaim != req.Username && roleClaim != "Admin") {
+                        return Results.Forbid();
+                    }
+
+                    users.Remove(userToDelete);
+                    logger.LogInformation($"User {req.Username} deleted by {usernameClaim}");
+
+                    return Results.Ok($"User {req.Username} deleted sucessfully");
+                    
+                } catch(Exception ex) {
+                    logger.LogError($"Token validation failed: {ex.Message}");
+                    return Results.Unauthorized();
+                }
+            });
+
             app.MapPost("/update-user", (UserUpdate req) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using XYZForge.Helpers;
 using XYZForge.Models;
+using XYZForge.Services;
 
 namespace XYZForge.Endpoints
 {
@@ -10,105 +11,53 @@ namespace XYZForge.Endpoints
     {
         public static void MapEndpoints(this WebApplication app)
         {
-            var users = new List<User>();
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-            string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-            if(secretKey == null) {
+            if (secretKey == null)
+            {
                 logger.LogError("Failed to load JWT secret key");
                 app.Lifetime.StopApplication();
             }
 
-            var hashedPass = BCrypt.Net.BCrypt.HashPassword("Admin");
-            users.Add(new User { Username = "Admin", Password = hashedPass, Role = "Admin" });
-            logger.LogInformation("Default admin creds: Admin:Admin");
-
-            app.MapGet("/get-user-data", (string Username) =>
+            app.MapGet("/get-user-data", async (string Username, MongoDBService mongoDbService) =>
             {
-                var user = users.FirstOrDefault(u => u.Username == Username);
+                var user = await mongoDbService.GetUserByUsernameAsync(Username);
                 return user is null
                     ? Results.NotFound("User not found")
                     : Results.Ok(new { user.Username, user.Password, user.Role });
             });
 
-            app.MapPost("/register", (UserRegistration req) =>
+            app.MapPost("/register", async (UserRegistration req, MongoDBService mongoDbService) =>
             {
-                if (users.Any(u => u.Username == req.Username))
+                var existingUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                if (existingUser != null)
                     return Results.BadRequest("User already exists");
 
-                users.Add(new User
+                var newUser = new User
                 {
                     Username = req.Username,
                     Password = BCrypt.Net.BCrypt.HashPassword(req.Password),
                     Role = string.IsNullOrEmpty(req.Role) ? "User" : req.Role
-                });
+                };
+
+                await mongoDbService.CreateUserAsync(newUser);
                 return Results.Ok("User registered successfully");
             });
 
-            app.MapPost("/login", (UserLogin req) =>
+            app.MapPost("/login", async (UserLogin req, MongoDBService mongoDbService) =>
             {
-                var user = users.FirstOrDefault(u => u.Username == req.Username);
-                if (user is null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
+                var user = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
                     return Results.Unauthorized();
 
-                var token = JwtHelper.GenerateJwtToken(req.Username, user.Role);
+                var token = JwtHelper.GenerateJwtToken(user.Username, user.Role);
                 return Results.Ok(new { Token = token });
             });
 
-            app.MapPost("/logout", () => {
-                return Results.Ok("Logout successful"); // The logout processed is managed by express session
-            });
-
-            app.MapPost("/delete-user", (UserDelete req) => {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var logger = app.Services.GetRequiredService<ILogger<Program>>();
-
-                try {
-                    var validatorParams = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = "XYZ-Forge",
-                        ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
-                    };
-
-                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
-
-                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-
-                    if(usernameClaim == null || roleClaim == null) {
-                        logger.LogWarning("Invalid Token: Missing Claims");
-                        return Results.BadRequest("Invalid Token");
-                    }
-
-                    var userToDelete = users.FirstOrDefault(u => u.Username == req.Username);
-                    if(userToDelete == null) {
-                        return Results.NotFound("User not found");
-                    }
-
-                    if(usernameClaim != req.Username && roleClaim != "Admin") {
-                        return Results.Forbid();
-                    }
-
-                    users.Remove(userToDelete);
-                    logger.LogInformation($"User {req.Username} deleted by {usernameClaim}");
-
-                    return Results.Ok($"User {req.Username} deleted sucessfully");
-                    
-                } catch(Exception ex) {
-                    logger.LogError($"Token validation failed: {ex.Message}");
-                    return Results.Unauthorized();
-                }
-            });
-
-            app.MapPost("/update-user", (UserUpdate req) =>
+            app.MapPost("/delete-user", async (UserDelete req, MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
                 try
                 {
@@ -120,33 +69,95 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
 
-                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name);
-                    if (usernameClaim is null) {
-                        logger.LogWarning("Role claim is missing in the token.");
-                        return Results.BadRequest("Role claim is missing in the token.");
+                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+                    if (usernameClaim == null || roleClaim == null)
+                    {
+                        logger.LogWarning("Invalid Token: Missing Claims");
+                        return Results.BadRequest("Invalid Token");
                     }
 
-                    var user = users.FirstOrDefault(u => u.Username == usernameClaim.Value);    
-                    if(user is null) {
+                    var userToDelete = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                    if (userToDelete == null)
+                    {
+                        logger.LogWarning($"User {req.Username} not found");
                         return Results.NotFound("User not found");
                     }
 
-                    var targetUser = users.FirstOrDefault(u => u.Username == req.Username);
-                    if (targetUser is null) {
-                        logger.LogWarning($"User not found: {req.Username}");
-                        return Results.NotFound("User not found.");
+                    if (usernameClaim != req.Username && roleClaim != "Admin")
+                    {
+                        logger.LogWarning($"Unauthorized delete attempt on {req.Username} by {usernameClaim}");
+                        return Results.Forbid();
                     }
 
-                    if (!string.IsNullOrEmpty(req.TargetRole)) {
-                        if (user.Role != "Admin") {
-                            logger.LogWarning($"Access denied. Role: {user.Role}");
+                    await mongoDbService.DeleteUserAsync(req.Username);
+                    logger.LogInformation($"User {req.Username} deleted successfully by {usernameClaim}");
+
+                    return Results.Ok($"User {req.Username} deleted successfully");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Token validation failed: {ex.Message}");
+                    return Results.Unauthorized();
+                }
+            });
+
+
+            app.MapPost("/update-user", async (UserUpdate req, MongoDBService mongoDbService, ILogger<Program> logger) =>
+            {
+                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+
+                try
+                {
+                    var validatorParams = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "XYZ-Forge",
+                        ValidAudience = "XYZ-Forge-User",
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                    };
+
+                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+
+                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+                    if (usernameClaim == null || roleClaim == null)
+                    {
+                        logger.LogWarning("Invalid Token: Missing Claims");
+                        return Results.BadRequest("Invalid Token");
+                    }
+
+                    var targetUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                    if (targetUser == null)
+                    {
+                        logger.LogWarning($"User {req.Username} not found");
+                        return Results.NotFound("User not found");
+                    }
+
+                    if (roleClaim != "Admin" && usernameClaim != req.Username)
+                    {
+                        logger.LogWarning($"Unauthorized update attempt on {req.Username} by {usernameClaim}");
+                        return Results.Forbid();
+                    }
+
+                    if (!string.IsNullOrEmpty(req.TargetRole))
+                    {
+                        if (roleClaim != "Admin")
+                        {
+                            logger.LogWarning($"Unauthorized role change attempt on {req.Username} by {usernameClaim}");
                             return Results.Forbid();
                         }
+
                         targetUser.Role = req.TargetRole;
                     }
 
@@ -154,8 +165,10 @@ namespace XYZForge.Endpoints
                     if (!string.IsNullOrEmpty(req.TargetPassword))
                         targetUser.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
 
-                    logger.LogInformation($"User {targetUser.Username} updated successfully.");
-                    return Results.Ok($"User {targetUser.Username} updated successfully.");
+                    await mongoDbService.UpdateUserAsync(req.Username, targetUser);
+                    logger.LogInformation($"User {req.Username} updated successfully by {usernameClaim}");
+
+                    return Results.Ok($"User {targetUser.Username} updated successfully");
                 }
                 catch (Exception ex)
                 {

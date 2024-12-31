@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
+using XYZForge.Services;
 
 namespace XYZForge.Extensions
 {
@@ -10,6 +11,8 @@ namespace XYZForge.Extensions
     {
         public static void ConfigureServices(this IServiceCollection services)
         {
+            services.AddSingleton<MongoDBService>();
+            
             string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
             
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

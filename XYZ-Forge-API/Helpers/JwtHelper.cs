@@ -15,6 +15,7 @@ namespace XYZForge.Helpers
             var claims = new[]
             {
                 new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.Role, role),
                 new Claim(JwtRegisteredClaimNames.Sub, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };

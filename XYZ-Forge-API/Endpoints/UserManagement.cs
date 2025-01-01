@@ -59,6 +59,14 @@ namespace XYZForge.Endpoints
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
 
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+
+                if (secretKey == null)
+                {
+                    logger.LogError("Failed to load JWT secret key");
+                    app.Lifetime.StopApplication();
+                }
+
                 try
                 {
                     var validatorParams = new TokenValidationParameters
@@ -69,7 +77,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
@@ -112,6 +120,13 @@ namespace XYZForge.Endpoints
             app.MapPost("/update-user", async (UserUpdate req, MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+
+                if (secretKey == null)
+                {
+                    logger.LogError("Failed to load JWT secret key");
+                    app.Lifetime.StopApplication();
+                }
 
                 try
                 {
@@ -123,7 +138,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);

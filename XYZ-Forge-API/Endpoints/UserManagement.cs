@@ -7,9 +7,9 @@ using XYZForge.Services;
 
 namespace XYZForge.Endpoints
 {
-    public static class ApiEndpoints
+    public static class UserApiEndpoints
     {
-        public static void MapEndpoints(this WebApplication app)
+        public static void MapUserEndpoints(this WebApplication app)
         {
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
@@ -58,14 +58,6 @@ namespace XYZForge.Endpoints
             app.MapPost("/delete-user", async (UserDelete req, MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-
-                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-
-                if (secretKey == null)
-                {
-                    logger.LogError("Failed to load JWT secret key");
-                    app.Lifetime.StopApplication();
-                }
 
                 try
                 {
@@ -120,13 +112,6 @@ namespace XYZForge.Endpoints
             app.MapPost("/update-user", async (UserUpdate req, MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-
-                if (secretKey == null)
-                {
-                    logger.LogError("Failed to load JWT secret key");
-                    app.Lifetime.StopApplication();
-                }
 
                 try
                 {

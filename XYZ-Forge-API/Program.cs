@@ -11,13 +11,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure services
 builder.Services.ConfigureServices();
 builder.Services.AddLogging();
-builder.Services.AddHostedService<AdminUserInit>(); // Move this above builder.Build()
+builder.Services.AddHostedService<AdminUserInit>();
 
 var app = builder.Build();
 
 // Configure pipeline and map endpoints
 app.ConfigurePipeline();
-app.MapEndpoints();
+app.MapUserEndpoints();
+app.MapMaterialEndpoints();
+app.UseRouting();
 
 app.Run();
 

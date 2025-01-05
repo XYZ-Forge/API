@@ -21,22 +21,32 @@ namespace XYZForge.Endpoints
                 throw new InvalidOperationException("JWT secret key is not configured.");
             }
 
-            app.MapGet("/materials", async ([FromServices] MongoDBService mongoDbService) => {
+            app.MapGet("/materials", async ([FromServices] MongoDBService mongoDbService, string? type = null) =>
+            {
                 var materials = await mongoDbService.GetMaterialsAsync();
 
                 if (!materials.Any())
                 {
-                    return Results.NotFound("No more materials in the DB");
+                    return Results.NotFound("No materials found in the database.");
                 }
 
-                var groupedMaterials = materials
-                    .GroupBy(material => material.Type)
-                    .ToDictionary(
-                        group => group.Key,
-                        group => group.ToList()
-                    );
+                if (type == "Resin")
+                {
+                    var resinMaterials = materials.OfType<Resin>().ToList();
+                    return Results.Ok(new { materials = resinMaterials });
+                }
+                else if (type == "Filament")
+                {
+                    var filamentMaterials = materials.OfType<Filament>().ToList();
+                    return Results.Ok(new { materials = filamentMaterials });
+                }
+                else
+                {
+                    var resinMaterials = materials.OfType<Resin>().ToList();
+                    var filamentMaterials = materials.OfType<Filament>().ToList();
 
-                return Results.Ok(new { materials = groupedMaterials });
+                    return Results.Ok(new { resin = resinMaterials, filament = filamentMaterials });
+                }
             });
 
             app.MapPost("/add-material", async ([FromBody] JsonElement req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
@@ -134,7 +144,7 @@ namespace XYZForge.Endpoints
                 }
             });
 
-            app.MapDelete("/material/name/{name}", async ([FromBody] GetMaterials req, [FromServices] MongoDBService mongoDbService, string name) =>
+            app.MapDelete("/material/name/{name}", async ([FromBody] DeleteMaterials req, [FromServices] MongoDBService mongoDbService, string name) =>
             {
                 var principal = ValidateToken(req.IssuerJWT, secretKey, logger);
                 if (principal == null)

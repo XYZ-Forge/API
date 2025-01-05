@@ -32,7 +32,7 @@ namespace XYZForge.Models {
         public double Diameter { get; set; }
     }
 
-    public record GetMaterials(string IssuerJWT);
+    public record DeleteMaterials(string IssuerJWT);
     public abstract record AddMaterial(string IssuerJWT, string Name, string Type, string Color, double Price);
 
     public record AddResin(string IssuerJWT, string Name, string Color, double Price, double Viscosity) 

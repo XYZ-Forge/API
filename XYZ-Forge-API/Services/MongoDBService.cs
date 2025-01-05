@@ -8,6 +8,7 @@ namespace XYZForge.Services
         private readonly IMongoCollection<User> _usersCollection;
         private readonly IMongoCollection<Material> _materialsCollection;
         private readonly ILogger<MongoDBService> _logger;
+        private readonly IMongoCollection<Printer> _printersCollection;
 
         public MongoDBService(IConfiguration configuration, ILogger<MongoDBService> logger)
         {
@@ -19,6 +20,8 @@ namespace XYZForge.Services
                 var mongoDatabase = mongoClient.GetDatabase(configuration["MONGODB_DATABASE_NAME"]);
                 _usersCollection = mongoDatabase.GetCollection<User>("Users");
                 _materialsCollection = mongoDatabase.GetCollection<Material>("Materials");
+                _printersCollection = mongoDatabase.GetCollection<Printer>("Printers");
+                
                 _logger.LogInformation("Connected to MongoDB successfully.");
             }
             catch (Exception ex)
@@ -75,5 +78,41 @@ namespace XYZForge.Services
 
         public async Task<DeleteResult> DeleteMaterialAsync(string materialName) =>
             await _materialsCollection.DeleteOneAsync(material => material.Name == materialName);
+    
+        //Printer Management
+
+        public async Task<List<Printer>> GetPrintersAsync() =>
+            await _printersCollection.Find(_ => true).ToListAsync();
+
+        public async Task<Printer?> GetPrinterByIdAsync(string id) =>
+            await _printersCollection.Find(printer => printer.Id == id).FirstOrDefaultAsync();
+
+        public async Task AddPrinterAsync(Printer newPrinter) =>
+            await _printersCollection.InsertOneAsync(newPrinter);
+
+        public async Task UpdatePrinterAsync(string id, Printer updatedPrinter) =>
+            await _printersCollection.ReplaceOneAsync(printer => printer.Id == id, updatedPrinter);
+
+        public async Task<DeleteResult> DeletePrinterAsync(string id) =>
+            await _printersCollection.DeleteOneAsync(printer => printer.Id == id);
+
+        public async Task<List<Printer>> SearchPrintersAsync(string? name, string? resolution, bool? hasWiFi, bool? hasTouchScreen)
+        {
+            var filterBuilder = Builders<Printer>.Filter;
+            var filters = new List<FilterDefinition<Printer>>();
+
+            if (!string.IsNullOrEmpty(name))
+                filters.Add(filterBuilder.Eq(printer => printer.PrinterName, name));
+            if (!string.IsNullOrEmpty(resolution))
+                filters.Add(filterBuilder.Eq(printer => printer.Resolution, resolution));
+            if (hasWiFi.HasValue)
+                filters.Add(filterBuilder.Eq(printer => printer.HasWiFi, hasWiFi.Value));
+            if (hasTouchScreen.HasValue)
+                filters.Add(filterBuilder.Eq(printer => printer.HasTouchScreen, hasTouchScreen.Value));
+
+            var combinedFilter = filters.Count > 0 ? filterBuilder.And(filters) : filterBuilder.Empty;
+            return await _printersCollection.Find(combinedFilter).ToListAsync();
+        }
+
     }
 }

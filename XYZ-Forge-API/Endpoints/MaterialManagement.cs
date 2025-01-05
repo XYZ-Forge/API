@@ -91,7 +91,9 @@ namespace XYZForge.Endpoints
                                 Name = resin.Name,
                                 Type = resin.Type,
                                 Color = resin.Color,
-                                Viscosity = resin.Viscosity
+                                Viscosity = resin.Viscosity,
+                                Price = resin.Price,
+                                RemainingQuantity = resin.RemainingQuantity
                             },
                             _ => throw new JsonException("Invalid Resin data")
                         },
@@ -103,7 +105,9 @@ namespace XYZForge.Endpoints
                                 Type = filament.Type,
                                 Color = filament.Color,
                                 MaterialType = filament.MaterialType,
-                                Diameter = filament.Diameter
+                                Diameter = filament.Diameter,
+                                Price = filament.Price,
+                                RemainingQuantity = filament.RemainingQuantity
                             },
                             _ => throw new JsonException("Invalid Filament data")
                         },

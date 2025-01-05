@@ -17,7 +17,10 @@ namespace XYZForge.Models {
         [BsonElement("Color")]
         public string Color { get; set; } = string.Empty;
         [BsonElement("Price")]
-        public double Price { get; set; } = 0;
+        public double Price { get; set; }
+
+        [BsonElement("RemainingQuantity")]
+        public double RemainingQuantity { get; set; }
     }
 
     public record Resin : Material {
@@ -33,13 +36,26 @@ namespace XYZForge.Models {
     }
 
     public record DeleteMaterials(string IssuerJWT);
-    public abstract record AddMaterial(string IssuerJWT, string Name, string Type, string Color, double Price);
+    public abstract record AddMaterial(string IssuerJWT, string Name, string Type, string Color, double Price, double RemainingQuantity);
 
-    public record AddResin(string IssuerJWT, string Name, string Color, double Price, double Viscosity) 
-        : AddMaterial(IssuerJWT, Name, "Resin", Color, Price);
+    public record AddResin(
+        string IssuerJWT, 
+        string Name, 
+        string Color, 
+        double Price, 
+        double RemainingQuantity, 
+        double Viscosity
+    ) : AddMaterial(IssuerJWT, Name, "Resin", Color, Price, RemainingQuantity);
 
-    public record AddFilament(string IssuerJWT, string Name, string Color, double Price, string MaterialType, double Diameter) 
-        : AddMaterial(IssuerJWT, Name, "Filament", Color, Price);
+    public record AddFilament(
+        string IssuerJWT, 
+        string Name, 
+        string Color, 
+        double Price, 
+        double RemainingQuantity,
+        string MaterialType, 
+        double Diameter
+    ) : AddMaterial(IssuerJWT, Name, "Filament", Color, Price, RemainingQuantity);
     
     public record SearchMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "");
 

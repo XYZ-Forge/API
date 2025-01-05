@@ -113,8 +113,7 @@ namespace XYZForge.Endpoints
                         },
                         _ => throw new JsonException($"Unsupported material type: {type}")
                     };
-
-                    // TODO: If material already exists, the stock for that material should be increased
+                    
                     await mongoDbService.CreateMaterialAsync(mat);
                     return Results.Ok(new { message = "Material added successfully", mat });
                 }

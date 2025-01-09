@@ -9,7 +9,7 @@ namespace XYZForge.Models {
     public abstract record Material {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? Id { get; set; }
+        public string? Id { get; init; }
         [BsonElement("Material")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("Type")]

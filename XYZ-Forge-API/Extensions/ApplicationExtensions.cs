@@ -6,6 +6,7 @@ namespace XYZForge.Extensions
         {
             if (app.Environment.IsDevelopment())
             {
+                app.MapGet("/", () => Results.Redirect("/api"));
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {

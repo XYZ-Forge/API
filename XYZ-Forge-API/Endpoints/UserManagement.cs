@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
@@ -34,6 +35,45 @@ namespace XYZForge.Endpoints
                 if (existingUser != null)
                     return Results.BadRequest("User already exists");
 
+                if(req.Role != "Admin" && req.Role != "User")
+                    return Results.BadRequest("Invalid role");
+                
+                if(req.Role == "Admin") {
+                    
+                    if(req.IssuerJWT == null || string.IsNullOrEmpty(req.IssuerJWT))
+                        return Results.BadRequest("Missing issuer JWT");
+
+                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+
+                    try
+                    {
+                        var validatorParams = new TokenValidationParameters
+                        {
+                            ValidateIssuer = true,
+                            ValidateAudience = true,
+                            ValidateLifetime = true,
+                            ValidateIssuerSigningKey = true,
+                            ValidIssuer = "XYZ-Forge",
+                            ValidAudience = "XYZ-Forge-User",
+                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+                        };
+
+                        var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+
+                        var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+                        if (roleClaim != "Admin")
+                        {
+                            return Results.Forbid();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError($"Token validation failed: {ex.Message}");
+                        return Results.Unauthorized();
+                    }
+                }
+
                 var newUser = new User
                 {
                     Username = req.Username,
@@ -55,7 +95,7 @@ namespace XYZForge.Endpoints
                 return Results.Ok(new { Token = token });
             });
 
-            app.MapPost("/delete-user", async (UserDelete req, MongoDBService mongoDbService, ILogger<Program> logger) =>
+            app.MapDelete("/delete-user", async ([FromBody] UserDelete req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
 

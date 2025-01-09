@@ -19,7 +19,7 @@ namespace XYZForge.Models
         public string Role { get; set; } = "User";
     }
 
-    public record UserRegistration(string Username, string Password, string? Role = "User");
+    public record UserRegistration(string Username, string Password, string? Role = "User", string? IssuerJWT = null);
     public record UserLogin(string Username, string Password);
     public record UserUpdate(string IssuerJWT, string Username, string TargetRole, string TargetUsername, string TargetPassword);
     public record UserDelete(string IssuerJWT, string Username);

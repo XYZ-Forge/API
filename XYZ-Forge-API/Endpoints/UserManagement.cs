@@ -90,8 +90,13 @@ namespace XYZForge.Endpoints
                 var user = await mongoDbService.GetUserByUsernameAsync(req.Username);
                 if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
                     return Results.Unauthorized();
-
+                
                 var token = JwtHelper.GenerateJwtToken(user.Username, user.Role);
+                
+                if(req.Username == "Admin" && BCrypt.Net.BCrypt.Verify("Admin", user.Password)) {
+                    return Results.Ok(new { Token = token, NeedToChangePassword = true });    
+                }
+
                 return Results.Ok(new { Token = token });
             });
 

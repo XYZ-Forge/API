@@ -69,7 +69,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
@@ -123,7 +123,7 @@ namespace XYZForge.Endpoints
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "XYZ-Forge",
                         ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
                     };
 
                     var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);

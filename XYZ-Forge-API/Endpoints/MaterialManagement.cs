@@ -195,7 +195,7 @@ namespace XYZForge.Endpoints
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = "XYZ-Forge",
                     ValidAudience = "XYZ-Forge-User",
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
                 };
 
                 return handler.ValidateToken(token, validatorParams, out _);

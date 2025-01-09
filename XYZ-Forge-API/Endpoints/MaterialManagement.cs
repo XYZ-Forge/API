@@ -69,6 +69,19 @@ namespace XYZForge.Endpoints
                 }
 
                 var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
+                    logger.LogError("Failed to get the claims from the JWT token");
+                    return Results.BadRequest("Failed to get claims from JWT token");
+                }
+
+                var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
                 if (roleClaim != "Admin")
                 {
                     return Results.BadRequest("Only Admins can add materials.");
@@ -131,6 +144,19 @@ namespace XYZForge.Endpoints
                 }
 
                 var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
+                    logger.LogError("Failed to get the claims from the JWT token");
+                    return Results.BadRequest("Failed to get claims from JWT token");
+                }
+
+                var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
                 if(roleClaim != "Admin") {
                     return Results.BadRequest("Only admins can search for materials");
                 }
@@ -156,6 +182,19 @@ namespace XYZForge.Endpoints
                 }
 
                 var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
+                    logger.LogError("Failed to get the claims from the JWT token");
+                    return Results.BadRequest("Failed to get claims from JWT token");
+                }
+
+                var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+                
                 if (roleClaim != "Admin")
                 {
                     return Results.BadRequest("Only Admins can delete materials.");

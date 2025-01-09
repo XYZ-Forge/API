@@ -7,7 +7,7 @@ namespace XYZForge.Helpers
 {
     public static class JwtHelper
     {
-        public static string GenerateJwtToken(string username, string role)
+        public static string GenerateJwtToken(string username, string role, int tokenVersion)
         {
             string? secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
@@ -18,6 +18,7 @@ namespace XYZForge.Helpers
             {
                 new Claim(ClaimTypes.Name, username),
                 new Claim(ClaimTypes.Role, role),
+                new Claim("TokenVersion", tokenVersion.ToString()),
                 new Claim(JwtRegisteredClaimNames.Sub, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };

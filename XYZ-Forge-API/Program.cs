@@ -63,7 +63,8 @@ public class AdminUserInit : IHostedService
             {
                 Username = "Admin",
                 Password = BCrypt.Net.BCrypt.HashPassword("Admin"),
-                Role = "Admin"
+                Role = "Admin",
+                TokenVersion = 0
             };
 
             await _mongoDBService.CreateUserAsync(adminUser);

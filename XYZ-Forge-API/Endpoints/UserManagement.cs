@@ -26,7 +26,7 @@ namespace XYZForge.Endpoints
                 var user = await mongoDbService.GetUserByUsernameAsync(Username);
                 return user is null
                     ? Results.NotFound("User not found")
-                    : Results.Ok(new { user.Username, user.Password, user.Role });
+                    : Results.Ok(new { user.Username, user.Password, user.Role, user.TokenVersion });
             });
 
             app.MapPost("/register", async (UserRegistration req, MongoDBService mongoDbService) =>
@@ -61,6 +61,17 @@ namespace XYZForge.Endpoints
                         var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
 
                         var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                        var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                        var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                        if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
+                            return Results.BadRequest("Invalid issuer JWT");
+                        }
+
+                        var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                        if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                            return Results.Unauthorized();
+                        }
 
                         if (roleClaim != "Admin")
                         {
@@ -91,7 +102,10 @@ namespace XYZForge.Endpoints
                 if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
                     return Results.Unauthorized();
                 
-                var token = JwtHelper.GenerateJwtToken(user.Username, user.Role);
+                user.TokenVersion++;
+                await mongoDbService.UpdateUserAsync(user.Username, user);
+                
+                var token = JwtHelper.GenerateJwtToken(user.Username, user.Role, user.TokenVersion);
                 
                 if(req.Username == "Admin" && BCrypt.Net.BCrypt.Verify("Admin", user.Password)) {
                     return Results.Ok(new { Token = token, NeedToChangePassword = true });    
@@ -121,11 +135,17 @@ namespace XYZForge.Endpoints
 
                     var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
                     var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
 
-                    if (usernameClaim == null || roleClaim == null)
+                    if (usernameClaim == null || roleClaim == null || tokenVersionClaim == null)
                     {
                         logger.LogWarning("Invalid Token: Missing Claims");
                         return Results.BadRequest("Invalid Token");
+                    }
+
+                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                        return Results.Unauthorized();
                     }
 
                     var userToDelete = await mongoDbService.GetUserByUsernameAsync(req.Username);
@@ -175,11 +195,18 @@ namespace XYZForge.Endpoints
 
                     var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
                     var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
 
-                    if (usernameClaim == null || roleClaim == null)
+                    if (usernameClaim == null || roleClaim == null || tokenVersionClaim == null)
                     {
                         logger.LogWarning("Invalid Token: Missing Claims");
                         return Results.BadRequest("Invalid Token");
+                    }
+
+                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                        logger.LogError($"Token validation failed: {usernameClaim} - {user!.TokenVersion} - {tokenVersionClaim}");
+                        return Results.Unauthorized();
                     }
 
                     var targetUser = await mongoDbService.GetUserByUsernameAsync(req.Username);

@@ -17,6 +17,9 @@ namespace XYZForge.Models
 
         [BsonElement("Role")]
         public string Role { get; set; } = "User";
+
+        [BsonElement("TokenVersion")]
+        public int TokenVersion { get; set; } = 0;
     }
 
     public record UserRegistration(string Username, string Password, string? Role = "User", string? IssuerJWT = null);

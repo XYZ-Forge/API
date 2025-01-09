@@ -3,8 +3,27 @@ using XYZForge.Endpoints;
 using XYZForge.Services;
 using XYZForge.Models;
 using DotNetEnv;
+using System.Text;
 
 Env.Load();
+
+// Check if all required environment variables are set
+var envVars = new string[] { "JWT_SECRET_KEY", "MONGODB_CONNECTION_STRING", "MONGODB_DATABASE_NAME" };
+var errorMessages = new StringBuilder();
+foreach (var envVar in envVars)
+{
+    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar)))
+    {
+        errorMessages.AppendLine($"Environment variable {envVar} is not set");
+    }
+}
+
+if (errorMessages.Length > 0)
+{
+    Console.WriteLine(errorMessages.ToString());
+    Console.WriteLine("Please set the required environment variables and restart the application");
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 

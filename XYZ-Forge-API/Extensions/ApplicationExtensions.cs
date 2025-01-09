@@ -6,7 +6,6 @@ namespace XYZForge.Extensions
         {
             if (app.Environment.IsDevelopment())
             {
-                app.MapGet("/", () => Results.Redirect("/api"));
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
@@ -18,6 +17,14 @@ namespace XYZForge.Extensions
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseAuthorization();
+
+            app.Use(async (context, next) => {
+                if(context.Request.Path == "/") {
+                    context.Response.Redirect("/api");
+                } else {
+                    await next();
+                }
+            });
         }
     }
 }

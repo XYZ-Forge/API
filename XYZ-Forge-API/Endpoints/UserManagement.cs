@@ -77,6 +77,10 @@ namespace XYZForge.Endpoints
                         {
                             return Results.Forbid();
                         }
+
+                        if(user.TokenVersion.ToString() != tokenVersionClaim) {
+                            return Results.BadRequest("Invalid or expired token");
+                        }
                     }
                     catch (Exception ex)
                     {

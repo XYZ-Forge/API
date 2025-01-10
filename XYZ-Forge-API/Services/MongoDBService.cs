@@ -51,7 +51,7 @@ namespace XYZForge.Services
         public async Task<List<Material>> GetMaterialsAsync() =>
             await _materialsCollection.Find(_ => true).ToListAsync() ?? new List<Material>();
         
-        public async Task<List<Material>> FilterMaterialsAsync(string? name = null, string? type = null, string? color = null)
+        public async Task<List<Material>> FilterMaterialsAsync(string? name = null, string? type = null, string? color = null, double? price = null, double? remainingQuantity = null)
         {
             var filterBuilder = Builders<Material>.Filter;
             var filters = new List<FilterDefinition<Material>>();
@@ -62,6 +62,14 @@ namespace XYZForge.Services
                 filters.Add(filterBuilder.Eq(material => material.Type, type));
             if (!string.IsNullOrEmpty(color))
                 filters.Add(filterBuilder.Eq(material => material.Color, color));
+            if (price.HasValue)
+                filters.Add(filterBuilder.Eq(material => material.Price, price.Value));
+            if(remainingQuantity.HasValue) {
+                if(remainingQuantity.Value == 0)
+                    filters.Add(filterBuilder.Eq(material => material.RemainingQuantity, 0));
+                else
+                    filters.Add(filterBuilder.Gt(material => material.RemainingQuantity, 0));
+            }
 
             var combinedFilter = filters.Count > 0
                 ? filterBuilder.And(filters)

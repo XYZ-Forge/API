@@ -162,7 +162,7 @@ namespace XYZForge.Endpoints
                 }
 
                 try {
-                    var res = await mongoDbService.FilterMaterialsAsync(req.Name, req.Type, req.Color);
+                    var res = await mongoDbService.FilterMaterialsAsync(req.Name, req.Type, req.Color, req.Price, req.RemainingQuantity);
                     
                     return res.Any() 
                         ? Results.Ok(new { res })

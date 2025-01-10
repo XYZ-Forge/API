@@ -57,6 +57,7 @@ namespace XYZForge.Models {
         double Diameter
     ) : AddMaterial(IssuerJWT, Name, "Filament", Color, Price, RemainingQuantity);
     
-    public record SearchMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "");
+    public record SearchMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "", double? Price = null, double? RemainingQuantity = null);
 
+    public record UpdateMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "", double? Price = null, double? RemainingQuantity = null, double? Viscosity = null, string? MaterialType = null, double? Diameter = null);
 }

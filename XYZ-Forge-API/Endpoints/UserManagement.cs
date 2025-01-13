@@ -118,6 +118,49 @@ namespace XYZForge.Endpoints
                 return Results.Ok(new { Token = token });
             });
 
+            app.MapPost("/logout", async ([FromBody] UserLogout req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) => {
+                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+
+                try {
+                    var validatorParams = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "XYZ-Forge",
+                        ValidAudience = "XYZ-Forge-User",
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+                    };
+
+                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+
+                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                    if(usernameClaim == null && roleClaim == null && tokenVersionClaim == null) {
+                        return Results.BadRequest("Invalid Token");
+                    }
+
+                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+
+                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                        return Results.Unauthorized();
+                    }
+
+                    user.TokenVersion++;
+                    await mongoDbService.UpdateUserAsync(user.Username, user);
+
+                    logger.LogInformation($"User {user.Username} logged out successfully");
+                    return Results.Ok("Logged out successfully");
+                    
+                } catch (Exception ex) {
+                    logger.LogError($"Token validation failed: {ex.Message}");
+                    return Results.Unauthorized();
+                }
+            });
+
             app.MapDelete("/delete-user", async ([FromBody] UserDelete req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
                 var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();

@@ -10,7 +10,19 @@ namespace XYZForge.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; init; }
-        // TODO: Model the Order object
+        
+        public string ObjectName { get; init; } = string.Empty;
+        public double Weight { get; init; }
+        public string Color { get; init; } = string.Empty;
+        public string Address { get; init; } = string.Empty;
+        public string MaterialType { get; init; } = string.Empty;
+        public double TotalCost { get; init; }
+    }
+
+    public record CalculateCostRequest
+    {
+        public string MaterialType { get; init; } = string.Empty;
+        public double Weight { get; init; }
     }
 
 }

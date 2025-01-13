@@ -104,11 +104,12 @@ namespace XYZForge.Services
         public async Task<DeleteResult> DeletePrinterAsync(string id) =>
             await _printersCollection.DeleteOneAsync(printer => printer.Id == id);
 
-        public async Task<List<Printer>> SearchPrintersAsync(string? name, string? resolution, bool? hasWiFi, bool? hasTouchScreen)
+        public async Task<List<Printer>> SearchPrintersAsync(string? id=null,string? name=null, string? resolution=null, bool? hasWiFi=null, bool? hasTouchScreen=null)
         {
             var filterBuilder = Builders<Printer>.Filter;
             var filters = new List<FilterDefinition<Printer>>();
-
+            if(!string.IsNullOrEmpty(id))
+                filters.Add(filterBuilder.Eq(printer => printer.Id, id));
             if (!string.IsNullOrEmpty(name))
                 filters.Add(filterBuilder.Eq(printer => printer.PrinterName, name));
             if (!string.IsNullOrEmpty(resolution))
@@ -121,6 +122,6 @@ namespace XYZForge.Services
             var combinedFilter = filters.Count > 0 ? filterBuilder.And(filters) : filterBuilder.Empty;
             return await _printersCollection.Find(combinedFilter).ToListAsync();
         }
-
+        
     }
 }

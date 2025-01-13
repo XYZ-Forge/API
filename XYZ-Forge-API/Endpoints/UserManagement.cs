@@ -143,7 +143,7 @@ namespace XYZForge.Endpoints
                         return Results.BadRequest("Invalid Token");
                     }
 
-                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim!);
 
                     if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
                         return Results.Unauthorized();
@@ -154,7 +154,7 @@ namespace XYZForge.Endpoints
 
                     logger.LogInformation($"User {user.Username} logged out successfully");
                     return Results.Ok("Logged out successfully");
-                    
+
                 } catch (Exception ex) {
                     logger.LogError($"Token validation failed: {ex.Message}");
                     return Results.Unauthorized();

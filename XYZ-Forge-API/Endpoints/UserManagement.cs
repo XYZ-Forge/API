@@ -252,7 +252,7 @@ namespace XYZForge.Endpoints
 
                     var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
                     if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
-                        logger.LogError($"Token validation failed: {usernameClaim} - {user!.TokenVersion} - {tokenVersionClaim}");
+                        logger.LogError($"Invalid Token");
                         return Results.Unauthorized();
                     }
 

@@ -1,3 +1,4 @@
+using Microsoft.IdentityModel.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 

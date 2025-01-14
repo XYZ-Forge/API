@@ -52,6 +52,10 @@ namespace XYZForge.Endpoints
                 try
                 {
                     
+                    if(req.SupportedMaterials == null || !req.SupportedMaterials.Any()) {
+                        return Results.BadRequest("Supported Materials are missing");
+                    }
+
                     var printer = new Printer
                     {
                         PrinterName = req.PrinterName,
@@ -60,10 +64,10 @@ namespace XYZForge.Endpoints
                         HasTouchScreen = req.HasTouchScreen,
                         MaxDimensions = req.MaxDimensions,
                         Price = req.Price,
-                        Type = req.Type
+                        Type = req.Type,
+                        SupportedMaterials = req.SupportedMaterials
                     };
 
-                    
                     if (req.Type == "Resin")
                     {
                         printer.ResinTankCapacity = req.ResinTankCapacity;
@@ -77,11 +81,10 @@ namespace XYZForge.Endpoints
                     else if (req.Type == "Filament")
                     {
                         printer.FilamentDiameter = req.FilamentDiameter;
-                        printer.SupportedMaterials = req.SupportedMaterials;
 
-                        if (printer.FilamentDiameter == null || printer.SupportedMaterials == null || !printer.SupportedMaterials.Any())
+                        if (printer.FilamentDiameter == null)
                         {
-                            return Results.BadRequest("FilamentDiameter and SupportedMaterials are required for Filament printers");
+                            return Results.BadRequest("FilamentDiameter is required for Filament printers");
                         }
                     }
                     else
@@ -114,8 +117,8 @@ namespace XYZForge.Endpoints
 
             app.MapPost("/printer/update",async ([FromBody]UpdatePrinters req,[FromServices]MongoDBService mongoDbService)=>
             {
-                var printer = await mongoDbService.GetPrinterByIdAsync(req.id);
-                if (printer == null)
+                var printer = await mongoDbService.GetPrinterByIdAsync(req.id!);
+                if(printer == null)
                 {
                     return Results.NotFound("Printer not found");
                 }

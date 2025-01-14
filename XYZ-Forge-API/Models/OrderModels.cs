@@ -11,6 +11,11 @@ namespace XYZForge.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; init; }
         // TODO: Model the Order object
+
+        /*
+            - Nume
+            - 
+        */
     }
 
 }

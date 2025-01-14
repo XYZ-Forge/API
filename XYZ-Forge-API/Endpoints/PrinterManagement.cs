@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using XYZForge.Models;
 using XYZForge.Services;
+using MongoDB.Driver;
 
 namespace XYZForge.Endpoints
 {
@@ -97,7 +98,7 @@ namespace XYZForge.Endpoints
                     return Results.Problem($"An error occurred while adding the printer. Error: {ex.Message}");
                 }
             });
-            /////////////////TEST/////////////////////
+        
             app.MapPost("/printer/search",async ([FromBody] SearchPrinters req,[FromServices] MongoDBService mongoDbService)=>
             {
                 var res = await mongoDbService.SearchPrintersAsync(req.id,req.name,req.resolution,req.hasWiFi,req.hasTouchScreen);
@@ -111,15 +112,73 @@ namespace XYZForge.Endpoints
                 return result.DeletedCount > 0 ? Results.Ok($"Printer {req.id} deleted successfully by admin") : Results.NotFound("Printer not found");
             });
 
-            app.MapPost("/printer/update",async (UpdatePrinters req,MongoDBService mongoDbService)=>
+            app.MapPost("/printer/update",async ([FromBody]UpdatePrinters req,[FromServices]MongoDBService mongoDbService)=>
             {
                 var printer = await mongoDbService.GetPrinterByIdAsync(req.id);
-                if(printer == null)
+                if (printer == null)
                 {
                     return Results.NotFound("Printer not found");
                 }
-                return Results.Ok(printer);
+
+                if (!string.IsNullOrEmpty(req.printerName))
+                {
+                    printer.PrinterName = req.printerName;
+                }
+
+                if (!string.IsNullOrEmpty(req.resolution))
+                {
+                    printer.Resolution = req.resolution;
+                }
+
+                if (req.hasWiFi.HasValue)
+                {
+                    printer.HasWiFi = req.hasWiFi.Value;
+                }
+
+                if (req.hasTouchScreen.HasValue)
+                {
+                    printer.HasTouchScreen = req.hasTouchScreen.Value;
+                }
+
+                if (!string.IsNullOrEmpty(req.maxDimensions))
+                {
+                    printer.MaxDimensions = req.maxDimensions;
+                }
+
+                if (req.price.HasValue)
+                {
+                    printer.Price = req.price.Value;
+                }
+
+                if (!string.IsNullOrEmpty(req.type))
+                {
+                    printer.Type = req.type;
+                }
+
+                if (req.resinTankCapacity.HasValue)
+                {
+                    printer.ResinTankCapacity = req.resinTankCapacity;
+                }
+
+                if (!string.IsNullOrEmpty(req.lightSourceType))
+                {
+                    printer.LightSourceType = req.lightSourceType;
+                }
+
+                if (req.filamentDiameter.HasValue)
+                {
+                    printer.FilamentDiameter = req.filamentDiameter;
+                }
+
+                if (req.supportedMaterials != null && req.supportedMaterials.Count > 0)
+                {
+                    printer.SupportedMaterials = req.supportedMaterials;
+                }
+
+                await mongoDbService.UpdatePrinterAsync(req.id, printer);
+                return Results.Ok($"Printer {req.id} updated successfully by admin");
             });
+
         }
     }
 }

@@ -128,94 +128,95 @@ namespace XYZForge.Endpoints {
                 return Results.Ok(new { message = "Order deleted successfully" });
             });
            
-           app.MapPost("/orders/calculate-cost", async ([FromBody] CalculateCostRequest req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
-{
-    if (req.IssuerJWT == null)
-    {
-        return Results.BadRequest("Missing JWT token.");
-    }
+            app.MapPost("/orders/calculate-cost", async ([FromBody] CalculateCostRequest req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
+            {
+                if (req.IssuerJWT == null)
+                {
+                    return Results.BadRequest("Missing JWT token.");
+                }
 
-    var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-    if (string.IsNullOrEmpty(secretKey))
-    {
-        logger.LogError("JWT secret key is not configured.");
-        return Results.BadRequest("JWT secret key is not configured.");
-    }
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+                if (string.IsNullOrEmpty(secretKey))
+                {
+                    logger.LogError("JWT secret key is not configured.");
+                    return Results.BadRequest("JWT secret key is not configured.");
+                }
 
-    var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
-    if (principal == null)
-    {
-        logger.LogWarning("Invalid or expired token.");
-        return Results.BadRequest("Invalid or expired token.");
-    }
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                {
+                    logger.LogWarning("Invalid or expired token.");
+                    return Results.BadRequest("Invalid or expired token.");
+                }
 
-    if (string.IsNullOrWhiteSpace(req.MaterialType) || string.IsNullOrWhiteSpace(req.Color) || req.Weight <= 0)
-    {
-        return Results.BadRequest("Invalid material type, color, or weight.");
-    }
+                if (string.IsNullOrWhiteSpace(req.MaterialType) || string.IsNullOrWhiteSpace(req.Color) || req.Weight <= 0)
+                {
+                    return Results.BadRequest("Invalid material type, color, or weight.");
+                }
 
-    var order = await mongoDbService.GetOrderByIdAsync(req.Id);
-    if (order == null)
-    {
-        return Results.NotFound("Order not found.");
-    }
+                var order = await mongoDbService.GetOrderByIdAsync(req.Id);
+                if (order == null)
+                {
+                    return Results.NotFound("Order not found.");
+                }
 
-    var materials = await mongoDbService.GetMaterialsAsync();
+                var materials = await mongoDbService.GetMaterialsAsync();
 
-  
-    var selectedMaterial = materials.FirstOrDefault(m =>
-        string.Equals(m.Type.Trim(), req.MaterialType.Trim(), StringComparison.OrdinalIgnoreCase) &&
-        string.Equals(m.Color.Trim(), req.Color.Trim(), StringComparison.OrdinalIgnoreCase));
+            
+                var selectedMaterial = materials.FirstOrDefault(m =>
+                    string.Equals(m.Type.Trim(), req.MaterialType.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(m.Color.Trim(), req.Color.Trim(), StringComparison.OrdinalIgnoreCase));
 
-    if (selectedMaterial == null)
-    {
-        logger.LogWarning($"Material not found for MaterialType: {req.MaterialType}, Color: {req.Color}");
-        return Results.NotFound(new { message = "Material not found for the specified type and color." });
-    }
+                if (selectedMaterial == null)
+                {
+                    logger.LogWarning($"Material not found for MaterialType: {req.MaterialType}, Color: {req.Color}");
+                    return Results.NotFound(new { message = "Material not found for the specified type and color." });
+                }
 
-    if (selectedMaterial.Price <= 0)
-    {
-        logger.LogWarning($"Invalid price for MaterialType: {req.MaterialType}, Color: {req.Color}");
-        return Results.BadRequest("Material price must be greater than zero.");
-    }
+                if (selectedMaterial.Price <= 0)
+                {
+                    logger.LogWarning($"Invalid price for MaterialType: {req.MaterialType}, Color: {req.Color}");
+                    return Results.BadRequest("Material price must be greater than zero.");
+                }
 
 
-    double baseCost = selectedMaterial.Price * req.Weight;
+                double baseCost = selectedMaterial.Price * req.Weight;
 
-    if (selectedMaterial is Filament filament)
-    {
-        baseCost *= filament.Diameter > 0 ? (filament.Diameter / 1.75) : 1;
-    }
-    else if (selectedMaterial is Resin resin)
-    {
-        baseCost *= resin.Viscosity > 0 ? (1 + (resin.Viscosity / 1000)) : 1;
-    }
+                if (selectedMaterial is Filament filament)
+                {
+                    baseCost *= filament.Diameter > 0 ? (filament.Diameter / 1.75) : 1;
+                }
+                else if (selectedMaterial is Resin resin)
+                {
+                    baseCost *= resin.Viscosity > 0 ? (1 + (resin.Viscosity / 1000)) : 1;
+                }
 
-    var dimensionFactors = req.Dimensions.Split('x')
-        .Select(dim => double.TryParse(dim.Trim(), out var d) ? d : 1)
-        .Aggregate(1.0, (acc, val) => acc * val);
+                var dimensionFactors = req.Dimensions.Split('x')
+                    .Select(dim => double.TryParse(dim.Trim(), out var d) ? d : 1)
+                    .Aggregate(1.0, (acc, val) => acc * val);
 
-    if (dimensionFactors <= 0)
-    {
-        logger.LogWarning($"Invalid dimensions: {req.Dimensions}");
-        dimensionFactors = 1; 
-    }
+                if (dimensionFactors <= 0)
+                {
+                    logger.LogWarning($"Invalid dimensions: {req.Dimensions}");
+                    dimensionFactors = 1; 
+                }
 
-    baseCost += dimensionFactors * 0.05;
+                baseCost += dimensionFactors * 0.05;
 
-    
-    order.TotalCost = baseCost;
-    await mongoDbService.UpdateOrderAsync(order.Id!, order);
+                
+                order.TotalCost = baseCost;
+                await mongoDbService.UpdateOrderAsync(order.Id!, order);
 
-    return Results.Ok(new
-    {
-        MaterialType = req.MaterialType,
-        Color = req.Color,
-        Weight = req.Weight,
-        Dimensions = req.Dimensions,
-        CalculatedCost = baseCost
-    });
-});
+                return Results.Ok(new
+                {
+                    MaterialType = req.MaterialType,
+                    Color = req.Color,
+                    Weight = req.Weight,
+                    Dimensions = req.Dimensions,
+                    CalculatedCost = baseCost
+                });
+            });
+            
             app.MapPost("/orders/update", async ([FromBody] UpdateOrders req, [FromServices] MongoDBService mongoDbService) =>
             {
                 if(req.IssuerJWT == null) {

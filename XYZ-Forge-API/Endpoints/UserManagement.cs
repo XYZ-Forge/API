@@ -20,12 +20,18 @@ namespace XYZForge.Endpoints
                 throw new InvalidOperationException("JWT secret key is not configured.");
             }
 
-            app.MapGet("/get-user-data", async (string Username, [FromServices] MongoDBService mongoDbService) =>
-            {
-                var user = await mongoDbService.GetUserByUsernameAsync(Username);
-                return user is null
-                    ? Results.NotFound("User not found")
-                    : Results.Ok(new { user.Username, user.Password, user.Role, user.TokenVersion });
+            if(app.Environment.IsDevelopment()) {
+                app.MapGet("/get-user-data", async (string Username, [FromServices] MongoDBService mongoDbService) =>
+                {
+                    var user = await mongoDbService.GetUserByUsernameAsync(Username);
+                    return user is null
+                        ? Results.NotFound("User not found")
+                        : Results.Ok(new { user.Username, user.Password, user.Role, user.TokenVersion });
+                });
+            }
+
+            app.MapGet("/get-users-db", () => {
+                return Results.Redirect("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
             });
 
             app.MapPost("/register", async ([FromBody] UserRegistration req, [FromServices] MongoDBService mongoDbService) =>

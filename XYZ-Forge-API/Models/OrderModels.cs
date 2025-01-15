@@ -34,13 +34,14 @@ namespace XYZForge.Models
     }
 
     public record CalculateCostRequest
-    {
-        public string Id { get; set; } = string.Empty;
-        public string IssuerJWT { get; set; } = string.Empty;
-        public string MaterialType { get; set; } = string.Empty;
-        public double Weight { get; set; }
-
-    }
+{
+    public string IssuerJWT { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
+    public string MaterialType { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
+    public double Weight { get; set; }
+    public string Dimensions { get; set; } = string.Empty; 
+}
 
     public record GetOrders(string Id, string? IssuerJWT = null);
     public record AddOrders(string ObjectName, double Weight, string Dimensions, string Color, string Address, string MaterialType, double TotalCost, string? IssuerJWT = null);

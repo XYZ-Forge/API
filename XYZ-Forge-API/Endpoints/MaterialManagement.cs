@@ -214,6 +214,45 @@ namespace XYZForge.Endpoints
                     return Results.Problem($"An error occurred while deleting the material '{name}'.");
                 }
             });
+
+            app.MapPost("/materials/low-stock", async ([FromBody] GetLowStockFilament req, [FromServices] MongoDBService mongoDbService) => {
+                if(req.IssuerJWT == null || string.IsNullOrWhiteSpace(req.IssuerJWT)) {
+                    return Results.BadRequest("Missing JWT token");
+                }
+                
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if(principal == null) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+
+                if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
+                    logger.LogError("Failed to get the claims from the JWT token");
+                    return Results.BadRequest("Failed to get claims from JWT token");
+                }
+
+                var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
+                if(roleClaim != "Admin") {
+                    return Results.BadRequest("Only admins can search for low stock materials");
+                }
+
+                try {
+                    var res = await mongoDbService.GetLowStockFilamentAsync();
+                    return res.Any() 
+                        ? Results.Ok(new { res })
+                        : Results.NotFound(new { message = "No low stock items found in the database" });
+                } catch(Exception ex) {
+                    logger.LogError(ex, "Error searching for low stock material");
+                    return Results.BadRequest("Error searching for low stock material");
+                }
+            });
         }
     }
 }

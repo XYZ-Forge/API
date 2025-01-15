@@ -20,7 +20,7 @@ namespace XYZForge.Models {
         public double Price { get; set; }
 
         [BsonElement("RemainingQuantity")]
-        public double RemainingQuantity { get; set; }
+        public double RemainingQuantity { get; set; } = 100;
     }
 
     public record Resin : Material {
@@ -60,4 +60,6 @@ namespace XYZForge.Models {
     public record SearchMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "", double? Price = null, double? RemainingQuantity = null);
 
     public record UpdateMaterial(string IssuerJWT, string? Name = "", string? Type = "", string? Color = "", double? Price = null, double? RemainingQuantity = null, double? Viscosity = null, string? MaterialType = null, double? Diameter = null);
+    public record GetLowStockFilament(string IssuerJWT);
+    public record RemoveMaterial(string IssuerJWT, string Id);
 }

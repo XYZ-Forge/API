@@ -88,6 +88,9 @@ namespace XYZForge.Services
 
         public async Task<DeleteResult> DeleteMaterialAsync(string materialName) =>
             await _materialsCollection.DeleteOneAsync(material => material.Name == materialName);
+        
+        public async Task<List<Material>> GetLowStockFilamentAsync() =>
+            await _materialsCollection.Find(material => material.Type == "Filament" && material.RemainingQuantity < 10).ToListAsync();
     
         //Printer Management
 

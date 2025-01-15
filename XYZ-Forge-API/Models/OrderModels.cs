@@ -39,6 +39,7 @@ namespace XYZForge.Models
     }
 
     public record GetOrders(string id);
+    public record AddOrders(string ObjectName,double Weight,string Dimensions,string Color,string Address,string MaterialType,double TotalCost);
     public record SearchOrders(string? id=null,string? ObjectName=null,double? Weight=null,string? Dimensions=null,string? Color=null,string? Address=null,string? MaterialType=null,double? TotalCost=null);
     public record DeleteOrders(string id);
 

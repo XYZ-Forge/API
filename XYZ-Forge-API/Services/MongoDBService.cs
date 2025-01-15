@@ -9,6 +9,7 @@ namespace XYZForge.Services
         private readonly IMongoCollection<Material> _materialsCollection;
         private readonly ILogger<MongoDBService> _logger;
         private readonly IMongoCollection<Printer> _printersCollection;
+        private readonly IMongoCollection<Order> _ordersCollection;
 
         public MongoDBService(IConfiguration configuration, ILogger<MongoDBService> logger)
         {
@@ -21,6 +22,7 @@ namespace XYZForge.Services
                 _usersCollection = mongoDatabase.GetCollection<User>("Users");
                 _materialsCollection = mongoDatabase.GetCollection<Material>("Materials");
                 _printersCollection = mongoDatabase.GetCollection<Printer>("Printers");
+                 _ordersCollection = mongoDatabase.GetCollection<Order>("Orders");
                 
                 _logger.LogInformation("Connected to MongoDB successfully.");
             }
@@ -123,5 +125,44 @@ namespace XYZForge.Services
             return await _printersCollection.Find(combinedFilter).ToListAsync();
         }
         
+
+        //Order Management
+        public async Task<List<Order>> GetOrdersAsync() =>
+            await _ordersCollection.Find(_ => true).ToListAsync();
+        
+        public async Task<Order?> GetOrderByIdAsync(string id) =>
+            await _ordersCollection.Find(order => order.Id == id).FirstOrDefaultAsync();
+
+        public async Task CreateOrderAsync(Order newOrder) =>
+            await _ordersCollection.InsertOneAsync(newOrder);
+
+        public async Task DeleteOrderAsync(string id) =>
+            await _ordersCollection.DeleteOneAsync(order => order.Id == id);
+
+        public async Task<List<Order>> SearchOrdersAsync(string? id=null,string? ObjectName=null,double? Weight=null,string? Dimensions=null,string? Color=null,string? Address=null,string? MaterialType=null,double? TotalCost=null)  
+        {
+            var filterBuilder = Builders<Order>.Filter;
+            var filters = new List<FilterDefinition<Order>>();
+            if(!string.IsNullOrEmpty(id))
+                filters.Add(filterBuilder.Eq(order => order.Id, id));
+            if (!string.IsNullOrEmpty(ObjectName))
+                filters.Add(filterBuilder.Eq(order => order.ObjectName, ObjectName));
+            if (Weight.HasValue)
+                filters.Add(filterBuilder.Eq(order => order.Weight, Weight.Value));
+            if (!string.IsNullOrEmpty(Dimensions))
+                filters.Add(filterBuilder.Eq(order => order.Dimensions, Dimensions));
+            if (!string.IsNullOrEmpty(Color))
+                filters.Add(filterBuilder.Eq(order => order.Color, Color));
+            if (!string.IsNullOrEmpty(Address))
+                filters.Add(filterBuilder.Eq(order => order.Address, Address));
+            if (!string.IsNullOrEmpty(MaterialType))
+                filters.Add(filterBuilder.Eq(order => order.MaterialType, MaterialType));
+            if (TotalCost.HasValue)
+                filters.Add(filterBuilder.Eq(order => order.TotalCost, TotalCost.Value));
+
+            var combinedFilter = filters.Count > 0 ? filterBuilder.And(filters) : filterBuilder.Empty;
+            return await _ordersCollection.Find(combinedFilter).ToListAsync();
+        }
+
     }
 }

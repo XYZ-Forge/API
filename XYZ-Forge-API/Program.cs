@@ -39,6 +39,7 @@ app.ConfigurePipeline();
 app.MapUserEndpoints();
 app.MapMaterialEndpoints();
 app.MapPrinterEndpoints();
+app.MapOrderEndpoints();
 app.UseRouting();
 
 app.Run();

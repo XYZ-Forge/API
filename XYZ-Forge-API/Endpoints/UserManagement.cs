@@ -14,7 +14,7 @@ namespace XYZForge.Endpoints
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-            if (string.IsNullOrEmpty(secretKey))
+            if (string.IsNullOrWhiteSpace(secretKey))
             {
                 logger.LogError("Failed to load JWT secret key");
                 throw new InvalidOperationException("JWT secret key is not configured.");
@@ -84,7 +84,7 @@ namespace XYZForge.Endpoints
                 var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
                 var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
 
-                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(tokenVersionClaim))
+                if (string.IsNullOrWhiteSpace(usernameClaim) || string.IsNullOrWhiteSpace(tokenVersionClaim))
                     return Results.BadRequest("Invalid token claims.");
 
                 var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
@@ -107,7 +107,7 @@ namespace XYZForge.Endpoints
                 var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
                 var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 
-                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(roleClaim))
+                if (string.IsNullOrWhiteSpace(usernameClaim) || string.IsNullOrWhiteSpace(roleClaim))
                     return Results.BadRequest("Invalid token claims.");
 
                 var userToDelete = await mongoDbService.GetUserByUsernameAsync(req.Username);
@@ -131,7 +131,7 @@ namespace XYZForge.Endpoints
                 var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
                 var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 
-                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(roleClaim))
+                if (string.IsNullOrWhiteSpace(usernameClaim) || string.IsNullOrWhiteSpace(roleClaim))
                     return Results.BadRequest("Invalid token claims.");
 
                 var targetUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
@@ -141,13 +141,13 @@ namespace XYZForge.Endpoints
                 if (roleClaim != "Admin" && usernameClaim != req.Username)
                     return Results.BadRequest("Unauthorized update attempt.");
 
-                if (!string.IsNullOrEmpty(req.TargetRole) && roleClaim == "Admin")
+                if (!string.IsNullOrWhiteSpace(req.TargetRole) && roleClaim == "Admin")
                     targetUser.Role = req.TargetRole;
 
-                if (!string.IsNullOrEmpty(req.TargetUsername))
+                if (!string.IsNullOrWhiteSpace(req.TargetUsername))
                     targetUser.Username = req.TargetUsername;
 
-                if (!string.IsNullOrEmpty(req.TargetPassword))
+                if (!string.IsNullOrWhiteSpace(req.TargetPassword))
                     targetUser.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
 
                 await mongoDbService.UpdateUserAsync(req.Username, targetUser);

@@ -37,7 +37,7 @@ namespace XYZForge.Helpers
 
         public static ClaimsPrincipal? ValidateToken(string token, string secretKey, ILogger logger)
         {
-            if (string.IsNullOrEmpty(token))
+            if (string.IsNullOrWhiteSpace(token))
             {
                 logger.LogWarning("Token is null or empty.");
                 return null;

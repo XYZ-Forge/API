@@ -12,7 +12,7 @@ var envVars = new string[] { "JWT_SECRET_KEY", "MONGODB_CONNECTION_STRING", "MON
 var errorMessages = new StringBuilder();
 foreach (var envVar in envVars)
 {
-    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar)))
+    if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVar)))
     {
         errorMessages.AppendLine($"Environment variable {envVar} is not set");
     }

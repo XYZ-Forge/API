@@ -56,11 +56,11 @@ namespace XYZForge.Services
             var filterBuilder = Builders<Material>.Filter;
             var filters = new List<FilterDefinition<Material>>();
 
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrWhiteSpace(name))
                 filters.Add(filterBuilder.Eq(material => material.Name, name));
-            if (!string.IsNullOrEmpty(type))
+            if (!string.IsNullOrWhiteSpace(type))
                 filters.Add(filterBuilder.Eq(material => material.Type, type));
-            if (!string.IsNullOrEmpty(color))
+            if (!string.IsNullOrWhiteSpace(color))
                 filters.Add(filterBuilder.Eq(material => material.Color, color));
             if (price.HasValue)
                 filters.Add(filterBuilder.Eq(material => material.Price, price.Value));
@@ -108,11 +108,11 @@ namespace XYZForge.Services
         {
             var filterBuilder = Builders<Printer>.Filter;
             var filters = new List<FilterDefinition<Printer>>();
-            if(!string.IsNullOrEmpty(id))
+            if(!string.IsNullOrWhiteSpace(id))
                 filters.Add(filterBuilder.Eq(printer => printer.Id, id));
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrWhiteSpace(name))
                 filters.Add(filterBuilder.Eq(printer => printer.PrinterName, name));
-            if (!string.IsNullOrEmpty(resolution))
+            if (!string.IsNullOrWhiteSpace(resolution))
                 filters.Add(filterBuilder.Eq(printer => printer.Resolution, resolution));
             if (hasWiFi.HasValue)
                 filters.Add(filterBuilder.Eq(printer => printer.HasWiFi, hasWiFi.Value));

@@ -16,7 +16,7 @@ namespace XYZForge.Endpoints
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-            if (string.IsNullOrEmpty(secretKey))
+            if (string.IsNullOrWhiteSpace(secretKey))
             {
                 logger.LogError("Failed to load JWT secret key");
                 throw new InvalidOperationException("JWT secret key is not configured.");
@@ -52,7 +52,7 @@ namespace XYZForge.Endpoints
 
             app.MapPost("/add-material", async ([FromBody] JsonElement req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
             {
-                if (!req.TryGetProperty("IssuerJWT", out var issuerJwtElement) || string.IsNullOrEmpty(issuerJwtElement.GetString()))
+                if (!req.TryGetProperty("IssuerJWT", out var issuerJwtElement) || string.IsNullOrWhiteSpace(issuerJwtElement.GetString()))
                 {
                     return Results.BadRequest("Invalid or missing 'IssuerJWT' in the request payload.");
                 }
@@ -88,7 +88,7 @@ namespace XYZForge.Endpoints
                     return Results.BadRequest("Only Admins can add materials.");
                 }
 
-                if (!req.TryGetProperty("Type", out var typeElement) || string.IsNullOrEmpty(typeElement.GetString()))
+                if (!req.TryGetProperty("Type", out var typeElement) || string.IsNullOrWhiteSpace(typeElement.GetString()))
                 {
                     return Results.BadRequest("Invalid or missing 'Type' property in the request payload.");
                 }
@@ -218,7 +218,7 @@ namespace XYZForge.Endpoints
 
         // private static ClaimsPrincipal? ValidateToken(string token, string secretKey, ILogger logger)
         // {
-        //     if (string.IsNullOrEmpty(token))
+        //     if (string.IsNullOrWhiteSpace(token))
         //     {
         //         logger.LogWarning("Token is null or empty.");
         //         return null;

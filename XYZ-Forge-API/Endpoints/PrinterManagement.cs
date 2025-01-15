@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using XYZForge.Models;
 using XYZForge.Services;
+using XYZForge.Helpers;
 using MongoDB.Driver;
+using System.Security.Claims;
 
 namespace XYZForge.Endpoints
 {
@@ -9,46 +11,72 @@ namespace XYZForge.Endpoints
     {
         public static void MapPrinterEndpoints(this WebApplication app)
         {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-            app.MapPost("/printers", async (GetPrinters req,MongoDBService mongoDbService)=>
+            if (string.IsNullOrWhiteSpace(secretKey))
             {
-                var printers=await mongoDbService.GetPrintersAsync();
+                logger.LogError("JWT_SECRET_KEY is missing from the environment variables");
+                throw new InvalidOperationException("JWT secret key is not configured.");
+            }
 
-                    if(!printers.Any())
-                    {
-                        return Results.NotFound("No printers in the database");
-                    }
+            app.MapPost("/printers", async ([FromBody] GetPrinters req, [FromServices] MongoDBService mongoDbService) =>
+            {
+                if(req.IssuerJWT == null) {
+                    return Results.BadRequest("Missing JWT token");
+                }
 
-                if(req.type == "Resin")
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                    return Results.BadRequest("Only admins can access this route.");
+
+                var printers = await mongoDbService.GetPrintersAsync();
+
+                if (!printers.Any())
+                {
+                    return Results.NotFound("No printers in the database");
+                }
+
+                if (req.type == "Resin")
                 {
                     var resinPrinters = printers.Where(p => p.Type == "Resin");
-                    return Results.Ok(new { resinPrinters= resinPrinters});
+                    return Results.Ok(new { resinPrinters });
                 }
-                
-                if(req.type == "Filament")
+
+                if (req.type == "Filament")
                 {
                     var filamentPrinters = printers.Where(p => p.Type == "Filament");
-                    return Results.Ok(new { filamentPrinters= filamentPrinters});
+                    return Results.Ok(new { filamentPrinters });
                 }
-                var allResinPrinters = printers.Where(p => p.Type == "Resin"); 
+
+                var allResinPrinters = printers.Where(p => p.Type == "Resin");
                 var allFilamentPrinters = printers.Where(p => p.Type == "Filament");
-                return Results.Ok(new {allResinPrinters, allFilamentPrinters});
+                return Results.Ok(new { allResinPrinters, allFilamentPrinters });
             });
 
-            
-
-            
-            app.MapPost("/add-printer", async (AddPrinterRequest req, MongoDBService mongoDbService) =>
+            app.MapPost("/add-printer", async ([FromBody] AddPrinterRequest req, [FromServices] MongoDBService mongoDbService) =>
             {
-                if (string.IsNullOrEmpty(req.PrinterName) || string.IsNullOrEmpty(req.Type))
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                    return Results.BadRequest("Only admins can add printers.");
+
+                if (string.IsNullOrWhiteSpace(req.PrinterName) || string.IsNullOrWhiteSpace(req.Type))
                 {
                     return Results.BadRequest("PrinterName and Type are required");
                 }
 
                 try
                 {
-                    
-                    if(req.SupportedMaterials == null || !req.SupportedMaterials.Any()) {
+                    if (req.SupportedMaterials == null || !req.SupportedMaterials.Any())
+                    {
                         return Results.BadRequest("Supported Materials are missing");
                     }
 
@@ -69,7 +97,7 @@ namespace XYZForge.Endpoints
                         printer.ResinTankCapacity = req.ResinTankCapacity;
                         printer.LightSourceType = req.LightSourceType;
 
-                        if (printer.ResinTankCapacity == null || string.IsNullOrEmpty(printer.LightSourceType))
+                        if (printer.ResinTankCapacity == null || string.IsNullOrWhiteSpace(printer.LightSourceType))
                         {
                             return Results.BadRequest("ResinTankCapacity and LightSourceType are required for Resin printers");
                         }
@@ -88,7 +116,6 @@ namespace XYZForge.Endpoints
                         return Results.BadRequest($"Unsupported printer type: {req.Type}");
                     }
 
-                    
                     await mongoDbService.AddPrinterAsync(printer);
                     return Results.Ok(new { message = "Printer added successfully", printer });
                 }
@@ -97,34 +124,73 @@ namespace XYZForge.Endpoints
                     return Results.Problem($"An error occurred while adding the printer. Error: {ex.Message}");
                 }
             });
-        
-            app.MapPost("/printer/search",async ([FromBody] SearchPrinters req,[FromServices] MongoDBService mongoDbService)=>
+
+            app.MapPost("/printer/search", async ([FromBody] SearchPrinters req, [FromServices] MongoDBService mongoDbService) =>
             {
-                var res = await mongoDbService.SearchPrintersAsync(req.id,req.name,req.resolution,req.hasWiFi,req.hasTouchScreen);
-                
+                if(req.IssuerJWT == null) {
+                    return Results.BadRequest("Missing JWT token");
+                }
+
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                    return Results.BadRequest("Only admins can search for printers.");
+
+                var res = await mongoDbService.SearchPrintersAsync(req.id, req.name, req.resolution, req.hasWiFi, req.hasTouchScreen);
                 return res.Any() ? Results.Ok(res) : Results.NotFound("No printers found");
             });
 
             app.MapDelete("/printer/delete", async ([FromBody] DeletePrinter req, [FromServices] MongoDBService mongoDbService) =>
             {
+                if(req.IssuerJWT == null) {
+                    return Results.BadRequest("Missing JWT token");
+                }
+
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                    return Results.BadRequest("Only admins can delete printers.");
+
                 var result = await mongoDbService.DeletePrinterAsync(req.id);
                 return result.DeletedCount > 0 ? Results.Ok($"Printer {req.id} deleted successfully by admin") : Results.NotFound("Printer not found");
             });
 
-            app.MapPost("/printer/update",async ([FromBody]UpdatePrinters req,[FromServices]MongoDBService mongoDbService)=>
+            app.MapPost("/printer/update", async ([FromBody] UpdatePrinters req, [FromServices] MongoDBService mongoDbService) =>
             {
+                if(req.IssuerJWT == null) {
+                    return Results.BadRequest("Missing JWT token");
+                }
+
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                    return Results.BadRequest("Only admins can update printers.");
+
                 var printer = await mongoDbService.GetPrinterByIdAsync(req.id!);
-                if(printer == null)
+                if (printer == null)
                 {
                     return Results.NotFound("Printer not found");
                 }
 
-                if (!string.IsNullOrEmpty(req.printerName))
+                if(req.id == null) {
+                    return Results.BadRequest("Printer ID is required");
+                }
+
+                if (!string.IsNullOrWhiteSpace(req.printerName))
                 {
                     printer.PrinterName = req.printerName;
                 }
 
-                if (!string.IsNullOrEmpty(req.resolution))
+                if (!string.IsNullOrWhiteSpace(req.resolution))
                 {
                     printer.Resolution = req.resolution;
                 }
@@ -139,7 +205,7 @@ namespace XYZForge.Endpoints
                     printer.HasTouchScreen = req.hasTouchScreen.Value;
                 }
 
-                if (!string.IsNullOrEmpty(req.maxDimensions))
+                if (!string.IsNullOrWhiteSpace(req.maxDimensions))
                 {
                     printer.MaxDimensions = req.maxDimensions;
                 }
@@ -149,7 +215,7 @@ namespace XYZForge.Endpoints
                     printer.Price = req.price.Value;
                 }
 
-                if (!string.IsNullOrEmpty(req.type))
+                if (!string.IsNullOrWhiteSpace(req.type))
                 {
                     printer.Type = req.type;
                 }
@@ -159,7 +225,7 @@ namespace XYZForge.Endpoints
                     printer.ResinTankCapacity = req.resinTankCapacity;
                 }
 
-                if (!string.IsNullOrEmpty(req.lightSourceType))
+                if (!string.IsNullOrWhiteSpace(req.lightSourceType))
                 {
                     printer.LightSourceType = req.lightSourceType;
                 }
@@ -177,7 +243,6 @@ namespace XYZForge.Endpoints
                 await mongoDbService.UpdatePrinterAsync(req.id, printer);
                 return Results.Ok($"Printer {req.id} updated successfully by admin");
             });
-
         }
     }
 }

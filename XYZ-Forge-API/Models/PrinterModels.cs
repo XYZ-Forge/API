@@ -45,6 +45,7 @@ namespace XYZForge.Models
     }
     public class AddPrinterRequest
     {
+        public string IssuerJWT { get; set; } = string.Empty;
         public string PrinterName { get; set; } = string.Empty;
         public string Resolution { get; set; } = string.Empty;
         public bool HasWiFi { get; set; }
@@ -62,9 +63,9 @@ namespace XYZForge.Models
         public List<string>? SupportedMaterials { get; set; }
     }
 
-    public record GetPrinters(string? type = null);
-    public record SearchPrinters(string? id=null,string? name=null, string? resolution=null, bool? hasWiFi=null, bool? hasTouchScreen=null);
-    public record UpdatePrinters(string id, string? printerName = null, string? resolution = null, bool? hasWiFi = null, bool? hasTouchScreen = null, string? maxDimensions = null, double? price = null, string? type = null, double? resinTankCapacity = null, string? lightSourceType = null, double? filamentDiameter = null, List<string>? supportedMaterials = null);
-    public record DeletePrinter(string id);
+    public record GetPrinters(string? IssuerJWT = null, string? type = null);
+    public record SearchPrinters(string? IssuerJWT = null, string? id=null,string? name=null, string? resolution=null, bool? hasWiFi=null, bool? hasTouchScreen=null);
+    public record UpdatePrinters(string? IssuerJWT = null, string? id = null, string? printerName = null, string? resolution = null, bool? hasWiFi = null, bool? hasTouchScreen = null, string? maxDimensions = null, double? price = null, string? type = null, double? resinTankCapacity = null, string? lightSourceType = null, double? filamentDiameter = null, List<string>? supportedMaterials = null);
+    public record DeletePrinter(string? IssuerJWT = null, string? id = null);
     
 }

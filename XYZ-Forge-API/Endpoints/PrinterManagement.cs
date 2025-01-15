@@ -258,6 +258,46 @@ namespace XYZForge.Endpoints
                 await mongoDbService.UpdatePrinterAsync(req.id, printer);
                 return Results.Ok($"Printer {req.id} updated successfully by admin");
             });
+
+            app.MapPost("/printer/add-resin", async ([FromBody] UpdatePrinters req, [FromServices] MongoDBService mongoDbService) =>
+            {
+                if (req.IssuerJWT == null) {
+                    return Results.BadRequest("Missing JWT token");
+                }
+
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey!, logger);
+
+                if (principal == null) {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin") {
+                    return Results.BadRequest("Only admins can add resin to printers.");
+                }
+
+                if (req.id == null) {
+                    return Results.BadRequest("Printer ID is required");
+                }
+
+                var printer = await mongoDbService.GetPrinterByIdAsync(req.id);
+                if (printer == null) {
+                    return Results.NotFound("Printer not found");
+                }
+
+                if (req.resinTankCapacity.HasValue) {
+                    printer.ResinTankCapacity = req.resinTankCapacity.Value;
+                } 
+                else 
+                {
+                    return Results.BadRequest("ResinTankCapacity is required");
+                }
+
+                await mongoDbService.UpdatePrinterAsync(req.id, printer);
+                return Results.Ok($"Resin added to printer {req.id} successfully by admin");
+            });  
+
+
         }
     }
 }

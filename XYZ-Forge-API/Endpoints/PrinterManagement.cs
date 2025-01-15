@@ -89,7 +89,8 @@ namespace XYZForge.Endpoints
                         MaxDimensions = req.MaxDimensions,
                         Price = req.Price,
                         Type = req.Type,
-                        SupportedMaterials = req.SupportedMaterials
+                        SupportedMaterials = req.SupportedMaterials,
+                        Status = req.Status
                     };
 
                     if (req.Type == "Resin")
@@ -243,6 +244,15 @@ namespace XYZForge.Endpoints
                 if (req.supportedMaterials != null && req.supportedMaterials.Count > 0)
                 {
                     printer.SupportedMaterials = req.supportedMaterials;
+                }
+
+                if (!string.IsNullOrWhiteSpace(req.status))
+                {   
+                    if(req.status != "IDLE" && req.status != "BUSY" && req.status != "OFFLINE") {
+                        return Results.BadRequest("Invalid status");
+                    }
+                    
+                    printer.Status = req.status;
                 }
 
                 await mongoDbService.UpdatePrinterAsync(req.id, printer);

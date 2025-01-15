@@ -164,5 +164,7 @@ namespace XYZForge.Services
             return await _ordersCollection.Find(combinedFilter).ToListAsync();
         }
 
+        public async Task UpdateOrderAsync(string id, Order updatedOrder) =>
+            await _ordersCollection.ReplaceOneAsync(order => order.Id == id, updatedOrder);
     }
 }

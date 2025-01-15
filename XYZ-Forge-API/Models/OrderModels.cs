@@ -10,19 +10,36 @@ namespace XYZForge.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; init; }
-        
-        public string ObjectName { get; init; } = string.Empty;
-        public double Weight { get; init; }
-        public string Color { get; init; } = string.Empty;
-        public string Address { get; init; } = string.Empty;
-        public string MaterialType { get; init; } = string.Empty;
-        public double TotalCost { get; init; }
+
+        [BsonElement("ObjectName")]
+        public string ObjectName { get; set; } = string.Empty;
+        [BsonElement("Weight")]
+        public double Weight { get; set; }
+
+        [BsonElement("Dimensions")]
+        public string Dimensions { get; set; }=string.Empty;
+
+        [BsonElement("Color")]
+        public string Color { get; set; } = string.Empty;
+
+        [BsonElement("Address")]
+        public string Address { get; set; } = string.Empty;
+
+        [BsonElement("MaterialType")]
+        public string MaterialType { get; set; } = string.Empty;
+
+        [BsonElement("TotalCost")]
+        public double TotalCost { get; set; }
     }
 
     public record CalculateCostRequest
     {
-        public string MaterialType { get; init; } = string.Empty;
-        public double Weight { get; init; }
+        public string MaterialType { get; set; } = string.Empty;
+        public double Weight { get; set; }
     }
+
+    public record GetOrders(string id);
+    public record SearchOrders(string? id=null,string? ObjectName=null,double? Weight=null,string? Dimensions=null,string? Color=null,string? Address=null,string? MaterialType=null,double? TotalCost=null);
+    public record DeleteOrders(string id);
 
 }

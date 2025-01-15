@@ -41,7 +41,11 @@ namespace XYZForge.Models
         public double? FilamentDiameter { get; set; } 
 
         [BsonElement("SupportedMaterials")]
-        public List<string>? SupportedMaterials { get; set; } 
+        public List<string>? SupportedMaterials { get; set; }
+
+        [BsonElement("CurrentMaterialId")]
+        public string? CurrentMaterialId { get; set; } = string.Empty;
+
         [BsonElement("Status")]
         public string Status { get; set; } = "IDLE";
     }
@@ -70,5 +74,8 @@ namespace XYZForge.Models
     public record SearchPrinters(string? IssuerJWT = null, string? id=null,string? name=null, string? resolution=null, bool? hasWiFi=null, bool? hasTouchScreen=null);
     public record UpdatePrinters(string? IssuerJWT = null, string? id = null, string? printerName = null, string? resolution = null, bool? hasWiFi = null, bool? hasTouchScreen = null, string? maxDimensions = null, double? price = null, string? type = null, double? resinTankCapacity = null, string? lightSourceType = null, double? filamentDiameter = null, List<string>? supportedMaterials = null, string? status = null);
     public record DeletePrinter(string? IssuerJWT = null, string? id = null);
+
+    public record AssignMaterialRequest(string IssuerJWT, string PrinterId, string MaterialId);
+    public record ChangeFilament(string IssuerJWT, string PrinterId, string RequiredColor, double RequiredQuantity);
     
 }

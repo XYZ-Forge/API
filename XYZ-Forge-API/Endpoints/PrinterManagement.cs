@@ -297,7 +297,122 @@ namespace XYZForge.Endpoints
                 return Results.Ok($"Resin added to printer {req.id} successfully by admin");
             });  
 
+            app.MapPost("/printer/assign-material", async ([FromBody] AssignMaterialRequest req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
+            {
+                if (string.IsNullOrWhiteSpace(req.IssuerJWT))
+                {
+                    return Results.BadRequest("Missing JWT token");
+                }
 
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                {
+                    return Results.BadRequest("Only admins can assign materials to printers.");
+                }
+
+                var printer = await mongoDbService.GetPrinterByIdAsync(req.PrinterId);
+                if (printer == null)
+                {
+                    return Results.NotFound("Printer not found.");
+                }
+
+                var material = await mongoDbService.GetMaterialByIdAsync(req.MaterialId);
+                if (material == null)
+                {
+                    return Results.NotFound("Material not found.");
+                }
+
+                if (printer.Type == "Filament" && material.Type != "Filament")
+                {
+                    return Results.BadRequest("Incompatible material type for the printer.");
+                }
+
+                if (printer.Type == "Resin" && material.Type != "Resin")
+                {
+                    return Results.BadRequest("Incompatible material type for the printer.");
+                }
+
+                printer.CurrentMaterialId = material.Id;
+                await mongoDbService.UpdatePrinterAsync(printer.Id!, printer);
+
+                return Results.Ok(new { message = "Material assigned successfully to printer." });
+            });
+
+            app.MapPost("/printer/change-filament", async ([FromBody] ChangeFilament req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
+            {
+                if (string.IsNullOrWhiteSpace(req.IssuerJWT))
+                {
+                    return Results.BadRequest("Missing JWT token");
+                }
+
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                {
+                    return Results.BadRequest("Invalid or expired token.");
+                }
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if (roleClaim != "Admin")
+                {
+                    return Results.BadRequest("Only admins can change filament.");
+                }
+
+                var printer = await mongoDbService.GetPrinterByIdAsync(req.PrinterId);
+                if (printer == null || printer.Type != "Filament")
+                {
+                    return Results.NotFound("Printer not found or not a filament printer.");
+                }
+
+                if (string.IsNullOrEmpty(printer.CurrentMaterialId))
+                {
+                    return Results.NotFound("No material is currently loaded in the printer.");
+                }
+
+                var currentMaterial = await mongoDbService.GetMaterialByIdAsync(printer.CurrentMaterialId);
+                if (currentMaterial == null || currentMaterial.Type != "Filament")
+                {
+                    return Results.NotFound("No valid filament found for the current material in the printer.");
+                }
+
+                if (currentMaterial.RemainingQuantity < req.RequiredQuantity || currentMaterial.Color != req.RequiredColor)
+                {
+                    var compatibleFilament = await mongoDbService.FindCompatibleFilamentAsync(req.RequiredColor, printer.FilamentDiameter ?? 0, req.RequiredQuantity);
+                    if (compatibleFilament == null)
+                    {
+                        return Results.NotFound("No compatible filament available in stock.");
+                    }
+
+                    currentMaterial.RemainingQuantity += printer.FilamentDiameter ?? 0;
+                    await mongoDbService.UpdateMaterialAsync(currentMaterial.Id!, currentMaterial);
+
+                    compatibleFilament.RemainingQuantity -= req.RequiredQuantity;
+                    if (compatibleFilament.RemainingQuantity < 0)
+                    {
+                        return Results.BadRequest("Insufficient quantity of compatible filament in stock.");
+                    }
+
+                    await mongoDbService.UpdateMaterialAsync(compatibleFilament.Id!, compatibleFilament);
+
+                    printer.CurrentMaterialId = compatibleFilament.Id;
+                    await mongoDbService.UpdatePrinterAsync(printer.Id!, printer);
+
+                    return Results.Ok(new
+                    {
+                        message = "Filament changed successfully",
+                        printerId = printer.Id,
+                        newFilament = compatibleFilament.Name,
+                        remainingQuantity = compatibleFilament.RemainingQuantity
+                    });
+                }
+
+                return Results.Ok("No filament change needed.");
+            });
         }
     }
 }

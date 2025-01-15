@@ -92,6 +92,12 @@ namespace XYZForge.Services
         public async Task<List<Material>> GetLowStockFilamentAsync() =>
             await _materialsCollection.Find(material => material.Type == "Filament" && material.RemainingQuantity < 10).ToListAsync();
     
+        public async Task<Material?> GetMaterialByIdAsync(string id) =>
+            await _materialsCollection.Find(material => material.Id == id).FirstOrDefaultAsync();
+
+        public async Task<Material?> FindCompatibleFilamentAsync(string color, double diameter, double quantity) =>
+            await _materialsCollection.Find(material => material.Type == "Filament" && material.Color == color && ((Filament)material).Diameter == diameter && material.RemainingQuantity >= quantity).FirstOrDefaultAsync();
+
         //Printer Management
 
         public async Task<List<Printer>> GetPrintersAsync() =>

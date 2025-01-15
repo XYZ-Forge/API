@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using XYZForge.Helpers;
 using XYZForge.Models;
 using XYZForge.Services;
 
@@ -62,7 +63,7 @@ namespace XYZForge.Endpoints
                     return Results.BadRequest("Failed to get JWT from request");
                 }
 
-                var principal = ValidateToken(issuerJwt, secretKey, logger);
+                var principal = JwtHelper.ValidateToken(issuerJwt, secretKey, logger);
                 if (principal == null)
                 {
                     return Results.BadRequest("Invalid or expired token.");
@@ -138,7 +139,7 @@ namespace XYZForge.Endpoints
             });
 
             app.MapPost("/material/search", async ([FromBody] SearchMaterial req, [FromServices] MongoDBService mongoDbService) => {
-                var principal = ValidateToken(req.IssuerJWT, secretKey, logger);
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
                 if(principal == null) {
                     return Results.BadRequest("Invalid or expired token.");
                 }
@@ -175,7 +176,7 @@ namespace XYZForge.Endpoints
 
             app.MapDelete("/material/name/{name}", async ([FromBody] DeleteMaterials req, [FromServices] MongoDBService mongoDbService, string name) =>
             {
-                var principal = ValidateToken(req.IssuerJWT, secretKey, logger);
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
                 if (principal == null)
                 {
                     return Results.BadRequest("Invalid or expired token.");
@@ -215,35 +216,35 @@ namespace XYZForge.Endpoints
             });
         }
 
-        private static ClaimsPrincipal? ValidateToken(string token, string secretKey, ILogger logger)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                logger.LogWarning("Token is null or empty.");
-                return null;
-            }
+        // private static ClaimsPrincipal? ValidateToken(string token, string secretKey, ILogger logger)
+        // {
+        //     if (string.IsNullOrEmpty(token))
+        //     {
+        //         logger.LogWarning("Token is null or empty.");
+        //         return null;
+        //     }
 
-            try
-            {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var validatorParams = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = "XYZ-Forge",
-                    ValidAudience = "XYZ-Forge-User",
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-                };
+        //     try
+        //     {
+        //         var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        //         var validatorParams = new TokenValidationParameters
+        //         {
+        //             ValidateIssuer = true,
+        //             ValidateAudience = true,
+        //             ValidateLifetime = true,
+        //             ValidateIssuerSigningKey = true,
+        //             ValidIssuer = "XYZ-Forge",
+        //             ValidAudience = "XYZ-Forge-User",
+        //             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+        //         };
 
-                return handler.ValidateToken(token, validatorParams, out _);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "JWT validation failed");
-                return null;
-            }
-        }
+        //         return handler.ValidateToken(token, validatorParams, out _);
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         logger.LogError(ex, "JWT validation failed");
+        //         return null;
+        //     }
+        // }
     }
 }

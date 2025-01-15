@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
-using System.Text;
 using XYZForge.Helpers;
 using XYZForge.Models;
 using XYZForge.Services;
@@ -15,13 +14,13 @@ namespace XYZForge.Endpoints
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-            if (secretKey == null)
+            if (string.IsNullOrEmpty(secretKey))
             {
                 logger.LogError("Failed to load JWT secret key");
-                app.Lifetime.StopApplication();
+                throw new InvalidOperationException("JWT secret key is not configured.");
             }
 
-            app.MapGet("/get-user-data", async (string Username, MongoDBService mongoDbService) =>
+            app.MapGet("/get-user-data", async (string Username, [FromServices] MongoDBService mongoDbService) =>
             {
                 var user = await mongoDbService.GetUserByUsernameAsync(Username);
                 return user is null
@@ -29,273 +28,131 @@ namespace XYZForge.Endpoints
                     : Results.Ok(new { user.Username, user.Password, user.Role, user.TokenVersion });
             });
 
-            app.MapPost("/register", async (UserRegistration req, MongoDBService mongoDbService) =>
+            app.MapPost("/register", async ([FromBody] UserRegistration req, [FromServices] MongoDBService mongoDbService) =>
             {
                 var existingUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
                 if (existingUser != null)
                     return Results.BadRequest("User already exists");
 
-                if(req.Role != "Admin" && req.Role != "User")
+                if (req.Role != "Admin" && req.Role != "User")
                     return Results.BadRequest("Invalid role");
-                
-                if(req.Role == "Admin") {
-                    
-                    if(req.IssuerJWT == null || string.IsNullOrEmpty(req.IssuerJWT))
-                        return Results.BadRequest("Missing issuer JWT");
 
-                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                if (req.Role == "Admin")
+                {
+                    var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                    if (principal == null)
+                        return Results.BadRequest("Invalid or expired token.");
 
-                    try
-                    {
-                        var validatorParams = new TokenValidationParameters
-                        {
-                            ValidateIssuer = true,
-                            ValidateAudience = true,
-                            ValidateLifetime = true,
-                            ValidateIssuerSigningKey = true,
-                            ValidIssuer = "XYZ-Forge",
-                            ValidAudience = "XYZ-Forge-User",
-                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-                        };
-
-                        var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
-
-                        var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                        var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-                        var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
-
-                        if(roleClaim == null || usernameClaim == null || tokenVersionClaim == null) {
-                            return Results.BadRequest("Invalid issuer JWT");
-                        }
-
-                        var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
-                        if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
-                            return Results.Unauthorized();
-                        }
-
-                        if (roleClaim != "Admin")
-                        {
-                            return Results.Forbid();
-                        }
-
-                        if(user.TokenVersion.ToString() != tokenVersionClaim) {
-                            return Results.BadRequest("Invalid or expired token");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError($"Token validation failed: {ex.Message}");
-                        return Results.Unauthorized();
-                    }
+                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                    if (roleClaim != "Admin")
+                        return Results.BadRequest("Only admins can register other admins.");
                 }
 
                 var newUser = new User
                 {
                     Username = req.Username,
                     Password = BCrypt.Net.BCrypt.HashPassword(req.Password),
-                    Role = string.IsNullOrEmpty(req.Role) ? "User" : req.Role
+                    Role = req.Role ?? "User"
                 };
 
                 await mongoDbService.CreateUserAsync(newUser);
                 return Results.Ok("User registered successfully");
             });
 
-            app.MapPost("/login", async (UserLogin req, MongoDBService mongoDbService) =>
+            app.MapPost("/login", async ([FromBody] UserLogin req, [FromServices] MongoDBService mongoDbService) =>
             {
                 var user = await mongoDbService.GetUserByUsernameAsync(req.Username);
                 if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.Password))
-                    return Results.Unauthorized();
-                
+                    return Results.BadRequest("Invalid username or password.");
+
                 user.TokenVersion++;
                 await mongoDbService.UpdateUserAsync(user.Username, user);
-                
+
                 var token = JwtHelper.GenerateJwtToken(user.Username, user.Role, user.TokenVersion);
-                
-                if(req.Username == "Admin" && BCrypt.Net.BCrypt.Verify("Admin", user.Password)) {
-                    return Results.Ok(new { Token = token, NeedToChangePassword = true });    
-                }
 
-                return Results.Ok(new { Token = token });
+                bool needToChangePassword = BCrypt.Net.BCrypt.Verify("Admin", user.Password) && user.Username == "Admin";
+
+                return Results.Ok(new { Token = token, NeedToChangePassword = needToChangePassword });
             });
 
-            app.MapPost("/logout", async ([FromBody] UserLogout req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) => {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-
-                try {
-                    var validatorParams = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = "XYZ-Forge",
-                        ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-                    };
-
-                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
-
-                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
-
-                    if(usernameClaim == null && roleClaim == null && tokenVersionClaim == null) {
-                        return Results.BadRequest("Invalid Token");
-                    }
-
-                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim!);
-
-                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
-                        return Results.Unauthorized();
-                    }
-
-                    user.TokenVersion++;
-                    await mongoDbService.UpdateUserAsync(user.Username, user);
-
-                    logger.LogInformation($"User {user.Username} logged out successfully");
-                    return Results.Ok("Logged out successfully");
-
-                } catch (Exception ex) {
-                    logger.LogError($"Token validation failed: {ex.Message}");
-                    return Results.Unauthorized();
-                }
-            });
-
-            app.MapDelete("/delete-user", async ([FromBody] UserDelete req, [FromServices] MongoDBService mongoDbService, ILogger<Program> logger) =>
+            app.MapPost("/logout", async ([FromBody] UserLogout req, [FromServices] MongoDBService mongoDbService) =>
             {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
 
-                try
-                {
-                    var validatorParams = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = "XYZ-Forge",
-                        ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-                    };
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
 
-                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(tokenVersionClaim))
+                    return Results.BadRequest("Invalid token claims.");
 
-                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+                var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
+                if (user == null || user.TokenVersion.ToString() != tokenVersionClaim)
+                    return Results.BadRequest("Invalid or expired token.");
 
-                    if (usernameClaim == null || roleClaim == null || tokenVersionClaim == null)
-                    {
-                        logger.LogWarning("Invalid Token: Missing Claims");
-                        return Results.BadRequest("Invalid Token");
-                    }
+                user.TokenVersion++;
+                await mongoDbService.UpdateUserAsync(user.Username, user);
 
-                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
-                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
-                        return Results.Unauthorized();
-                    }
-
-                    var userToDelete = await mongoDbService.GetUserByUsernameAsync(req.Username);
-                    if (userToDelete == null)
-                    {
-                        logger.LogWarning($"User {req.Username} not found");
-                        return Results.NotFound("User not found");
-                    }
-
-                    if (usernameClaim != req.Username && roleClaim != "Admin")
-                    {
-                        logger.LogWarning($"Unauthorized delete attempt on {req.Username} by {usernameClaim}");
-                        return Results.Forbid();
-                    }
-
-                    await mongoDbService.DeleteUserAsync(req.Username);
-                    logger.LogInformation($"User {req.Username} deleted successfully by {usernameClaim}");
-
-                    return Results.Ok($"User {req.Username} deleted successfully");
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Token validation failed: {ex.Message}");
-                    return Results.Unauthorized();
-                }
+                logger.LogInformation($"User {user.Username} logged out successfully");
+                return Results.Ok("Logged out successfully");
             });
 
-
-            app.MapPost("/update-user", async (UserUpdate req, MongoDBService mongoDbService, ILogger<Program> logger) =>
+            app.MapDelete("/delete-user", async ([FromBody] UserDelete req, [FromServices] MongoDBService mongoDbService) =>
             {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
 
-                try
-                {
-                    var validatorParams = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = "XYZ-Forge",
-                        ValidAudience = "XYZ-Forge-User",
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-                    };
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 
-                    var principal = handler.ValidateToken(req.IssuerJWT, validatorParams, out var _);
+                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(roleClaim))
+                    return Results.BadRequest("Invalid token claims.");
 
-                    var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-                    var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                    var tokenVersionClaim = principal.Claims.FirstOrDefault(c => c.Type == "TokenVersion")?.Value;
+                var userToDelete = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                if (userToDelete == null)
+                    return Results.NotFound("User not found");
 
-                    if (usernameClaim == null || roleClaim == null || tokenVersionClaim == null)
-                    {
-                        logger.LogWarning("Invalid Token: Missing Claims");
-                        return Results.BadRequest("Invalid Token");
-                    }
+                if (usernameClaim != req.Username && roleClaim != "Admin")
+                    return Results.BadRequest("Unauthorized delete attempt.");
 
-                    var user = await mongoDbService.GetUserByUsernameAsync(usernameClaim);
-                    if(user == null || user.TokenVersion.ToString() != tokenVersionClaim) {
-                        logger.LogError($"Invalid Token");
-                        return Results.Unauthorized();
-                    }
-
-                    var targetUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
-                    if (targetUser == null)
-                    {
-                        logger.LogWarning($"User {req.Username} not found");
-                        return Results.NotFound("User not found");
-                    }
-
-                    if (roleClaim != "Admin" && usernameClaim != req.Username)
-                    {
-                        logger.LogWarning($"Unauthorized update attempt on {req.Username} by {usernameClaim}");
-                        return Results.Forbid();
-                    }
-
-                    if (!string.IsNullOrEmpty(req.TargetRole))
-                    {
-                        if (roleClaim != "Admin")
-                        {
-                            logger.LogWarning($"Unauthorized role change attempt on {req.Username} by {usernameClaim}");
-                            return Results.Forbid();
-                        }
-
-                        targetUser.Role = req.TargetRole;
-                    }
-
-                    if (!string.IsNullOrEmpty(req.TargetUsername)) targetUser.Username = req.TargetUsername;
-                    if (!string.IsNullOrEmpty(req.TargetPassword))
-                        targetUser.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
-
-                    await mongoDbService.UpdateUserAsync(req.Username, targetUser);
-                    logger.LogInformation($"User {req.Username} updated successfully by {usernameClaim}");
-
-                    return Results.Ok($"User {targetUser.Username} updated successfully");
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Token validation failed: {ex.Message}");
-                    return Results.Unauthorized();
-                }
+                await mongoDbService.DeleteUserAsync(req.Username);
+                logger.LogInformation($"User {req.Username} deleted successfully by {usernameClaim}");
+                return Results.Ok($"User {req.Username} deleted successfully");
             });
 
+            app.MapPost("/update-user", async ([FromBody] UserUpdate req, [FromServices] MongoDBService mongoDbService) =>
+            {
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                if (principal == null)
+                    return Results.BadRequest("Invalid or expired token.");
+
+                var usernameClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+                if (string.IsNullOrEmpty(usernameClaim) || string.IsNullOrEmpty(roleClaim))
+                    return Results.BadRequest("Invalid token claims.");
+
+                var targetUser = await mongoDbService.GetUserByUsernameAsync(req.Username);
+                if (targetUser == null)
+                    return Results.NotFound("User not found");
+
+                if (roleClaim != "Admin" && usernameClaim != req.Username)
+                    return Results.BadRequest("Unauthorized update attempt.");
+
+                if (!string.IsNullOrEmpty(req.TargetRole) && roleClaim == "Admin")
+                    targetUser.Role = req.TargetRole;
+
+                if (!string.IsNullOrEmpty(req.TargetUsername))
+                    targetUser.Username = req.TargetUsername;
+
+                if (!string.IsNullOrEmpty(req.TargetPassword))
+                    targetUser.Password = BCrypt.Net.BCrypt.HashPassword(req.TargetPassword);
+
+                await mongoDbService.UpdateUserAsync(req.Username, targetUser);
+                return Results.Ok($"User {targetUser.Username} updated successfully");
+            });
         }
     }
 }

@@ -157,6 +157,11 @@ namespace XYZForge.Endpoints
                 if (roleClaim != "Admin")
                     return Results.BadRequest("Only admins can delete printers.");
 
+                if (string.IsNullOrWhiteSpace(req.id))
+                {
+                    return Results.BadRequest("Printer ID is required");
+                }
+
                 var result = await mongoDbService.DeletePrinterAsync(req.id);
                 return result.DeletedCount > 0 ? Results.Ok($"Printer {req.id} deleted successfully by admin") : Results.NotFound("Printer not found");
             });

@@ -39,6 +39,9 @@ namespace XYZForge.Endpoints
 
                 if (req.Role == "Admin")
                 {
+                    if (string.IsNullOrWhiteSpace(req.IssuerJWT))
+                        return Results.BadRequest("IssuerJWT is required.");
+
                     var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
                     if (principal == null)
                         return Results.BadRequest("Invalid or expired token.");

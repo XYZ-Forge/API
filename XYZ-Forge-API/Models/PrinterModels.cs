@@ -1,3 +1,4 @@
+using Microsoft.IdentityModel.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -50,14 +51,20 @@ namespace XYZForge.Models
         public bool HasTouchScreen { get; set; }
         public string MaxDimensions { get; set; } = string.Empty;
         public double Price { get; set; }
-        public string Type { get; set; } = string.Empty; // Ex. "Resin" sau "Filament"
+        public string Type { get; set; } = string.Empty;
 
-        // Specific pentru imprimante de tip Resin
+        
         public double? ResinTankCapacity { get; set; }
         public string? LightSourceType { get; set; }
 
-        // Specific pentru imprimante de tip Filament
+       
         public double? FilamentDiameter { get; set; }
         public List<string>? SupportedMaterials { get; set; }
     }
+
+    public record GetPrinters(string? type = null);
+    public record SearchPrinters(string? id=null,string? name=null, string? resolution=null, bool? hasWiFi=null, bool? hasTouchScreen=null);
+    public record UpdatePrinters(string id, string? printerName = null, string? resolution = null, bool? hasWiFi = null, bool? hasTouchScreen = null, string? maxDimensions = null, double? price = null, string? type = null, double? resinTankCapacity = null, string? lightSourceType = null, double? filamentDiameter = null, List<string>? supportedMaterials = null);
+    public record DeletePrinter(string id);
+    
 }

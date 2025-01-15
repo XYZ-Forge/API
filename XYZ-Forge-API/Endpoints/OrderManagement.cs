@@ -134,14 +134,20 @@ namespace XYZForge.Endpoints {
                     return Results.BadRequest("Missing JWT token");
                 }
 
-                if (secretKey == null) {
-                    return Results.BadRequest("JWT secret key is not configured.");
-                }
-
-                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
+                var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey!, logger);
 
                 if (principal == null){
                     return Results.BadRequest("Invalid or expired token.");
+                }
+
+                var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                if(roleClaim != "Admin"){
+                    return Results.BadRequest("Only admins can update orders.");
+                }
+
+                if (string.IsNullOrWhiteSpace(req.id))
+                {
+                    return Results.BadRequest("Order ID is required");
                 }
 
                 if (string.IsNullOrWhiteSpace(req.Address))
@@ -149,7 +155,7 @@ namespace XYZForge.Endpoints {
                     return Results.BadRequest("Address is required");
                 }
 
-                var order = await mongoDbService.GetOrderByIdAsync(req.Address);
+                var order = await mongoDbService.GetOrderByIdAsync(req.id);
 
                 if (order == null)
                 {
@@ -160,10 +166,17 @@ namespace XYZForge.Endpoints {
                 {
                     var updateOrder = new Order
                     {
+                        Id = order.Id,
+                        ObjectName = order.ObjectName,
+                        Weight = order.Weight,
+                        Dimensions = order.Dimensions,
+                        Color = order.Color,
                         Address = req.Address,
+                        MaterialType = order.MaterialType,
+                        TotalCost = order.TotalCost
                     };
                     
-                    await mongoDbService.UpdateOrderAsync(req.Address, updateOrder);
+                    await mongoDbService.UpdateOrderAsync(req.id, updateOrder);
                     return Results.Ok(new { message = "Order updated successfully", updateOrder });
                 }
                 catch (Exception ex)

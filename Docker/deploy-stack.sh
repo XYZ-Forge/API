@@ -30,6 +30,25 @@ initialize_swarm() {
     fi
 }
 
+build_image() {
+    local dockerfile="Dockerfile"
+    local image_name="xyz-forge-api"
+    
+    if [[ ! -f $dockerfile ]]; then
+        echo "Error: $dockerfile not found in the current directory."
+        exit 1
+    fi
+
+    echo "Building Docker image..."
+    docker build -t "$image_name" .
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Docker image build failed."
+        exit 1
+    fi
+
+    echo "Docker image built successfully."
+}
+
 deploy_stack() {
     local stack_file="docker-compose.yml"
     
@@ -58,6 +77,9 @@ select_interface
 
 echo "Initializing Docker Swarm..."
 initialize_swarm "$interface"
+
+echo "Building Docker image..."
+build_image
 
 echo "Deploying Docker stack..."
 deploy_stack

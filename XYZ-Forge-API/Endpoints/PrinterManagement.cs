@@ -348,7 +348,7 @@ namespace XYZForge.Endpoints
             {
                 if (string.IsNullOrWhiteSpace(req.IssuerJWT))
                 {
-                    return Results.BadRequest("Missing JWT token");
+                    return Results.BadRequest("Missing JWT token.");
                 }
 
                 var principal = JwtHelper.ValidateToken(req.IssuerJWT, secretKey, logger);
@@ -380,31 +380,36 @@ namespace XYZForge.Endpoints
                     return Results.NotFound("No valid filament found for the current material in the printer.");
                 }
 
-                if (currentMaterial.RemainingQuantity < req.RequiredQuantity || currentMaterial.Color != req.RequiredColor)
+                if (currentMaterial.RemainingQuantity < 100 || currentMaterial.Color != req.RequiredColor)
                 {
-                    var compatibleFilament = await mongoDbService.FindCompatibleFilamentAsync(req.RequiredColor, printer.FilamentDiameter ?? 0, req.RequiredQuantity);
+                    double requiredDiameter = printer.FilamentDiameter ?? 0;
+                    if (requiredDiameter <= 0)
+                    {
+                        return Results.BadRequest("Printer filament diameter is not configured.");
+                    }
+
+                    var compatibleFilament = await mongoDbService.FindCompatibleFilamentAsync(req.RequiredColor, requiredDiameter, req.RequiredQuantity);
                     if (compatibleFilament == null)
                     {
                         return Results.NotFound("No compatible filament available in stock.");
                     }
 
-                    currentMaterial.RemainingQuantity += printer.FilamentDiameter ?? 0;
-                    await mongoDbService.UpdateMaterialAsync(currentMaterial.Id!, currentMaterial);
-
-                    compatibleFilament.RemainingQuantity -= req.RequiredQuantity;
-                    if (compatibleFilament.RemainingQuantity < 0)
+                    if (compatibleFilament.RemainingQuantity < req.RequiredQuantity)
                     {
                         return Results.BadRequest("Insufficient quantity of compatible filament in stock.");
                     }
 
+                    // Deduct quantity from compatible filament
+                    compatibleFilament.RemainingQuantity -= req.RequiredQuantity;
                     await mongoDbService.UpdateMaterialAsync(compatibleFilament.Id!, compatibleFilament);
 
+                    // Update the printer's current material
                     printer.CurrentMaterialId = compatibleFilament.Id;
                     await mongoDbService.UpdatePrinterAsync(printer.Id!, printer);
 
                     return Results.Ok(new
                     {
-                        message = "Filament changed successfully",
+                        message = "Filament changed successfully.",
                         printerId = printer.Id,
                         newFilament = compatibleFilament.Name,
                         remainingQuantity = compatibleFilament.RemainingQuantity
@@ -413,6 +418,7 @@ namespace XYZForge.Endpoints
 
                 return Results.Ok("No filament change needed.");
             });
+
         }
     }
 }

@@ -31,7 +31,7 @@ namespace XYZForge.Endpoints
             }
 
             app.MapGet("/get-users-db", () => {
-                return Results.Redirect("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+                return Results.Redirect("https://www.youtube.com/watch?v=P7FUp20QG10");
             });
 
             app.MapPost("/register", async ([FromBody] UserRegistration req, [FromServices] MongoDBService mongoDbService) =>

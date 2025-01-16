@@ -3,8 +3,8 @@ services:
   xyz-forge-api:
     image: xyz-forge-api
     build:
-      context: ../
-      dockerfile: ./Docker/Dockerfile
+      context: .
+      dockerfile: ./Dockerfile
     deploy:
       replicas: 1
       restart_policy:
@@ -15,7 +15,5 @@ services:
         order: start-first
     ports:
       - "8080:8080"
-    environment:
-      - JWT_SECRET_KEY="g93KsFp02+3BtpxgLM92sGytv4N32FbkXaPbG8TnxUs="
-      - MONGODB_CONNECTION_STRING=mongodb+srv://xyzforgeapi:zDXd2HTZSCEGVliG@xyz-forge-api.eswbw.mongodb.net/?retryWrites=true&w=majority&appName=XYZ-Forge-API
-      - MONGODB_DATABASE_NAME=XYZ-Forge-API
+    env_file:
+      - ./XYZ-Forge-API/.env
